@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using MouseTrainer.Domain.Events;
 using MouseTrainer.Domain.Runs;
+using MouseTrainer.Domain.Scoring;
 
 namespace MouseTrainer.Simulation.Session;
 
@@ -19,6 +20,7 @@ public sealed class SessionController
     private int _currentCombo;
     private int _totalScore;
     private readonly List<GateResult> _gateResults = new(capacity: 16);
+    private readonly List<ScoreDelta> _deltas = new(capacity: 16);
     private RunDescriptor? _runDescriptor;
 
     public SessionState State => _state;
@@ -43,6 +45,7 @@ public sealed class SessionController
         _currentCombo = 0;
         _totalScore = 0;
         _gateResults.Clear();
+        _deltas.Clear();
     }
 
     /// <summary>
@@ -59,6 +62,7 @@ public sealed class SessionController
         _currentCombo = 0;
         _totalScore = 0;
         _gateResults.Clear();
+        _deltas.Clear();
     }
 
     /// <summary>
@@ -99,6 +103,11 @@ public sealed class SessionController
                         true,
                         score,
                         offsetNormalized));
+                    _deltas.Add(new ScoreDelta(
+                        ScoreComponentId.GateScore,
+                        score,
+                        ev.Arg0,
+                        _currentCombo));
                     break;
                 }
 
@@ -112,6 +121,11 @@ public sealed class SessionController
                         false,
                         0,
                         1f + missDistance));
+                    _deltas.Add(new ScoreDelta(
+                        ScoreComponentId.GateScore,
+                        0,
+                        ev.Arg0,
+                        0));
                     break;
                 }
 
@@ -146,6 +160,7 @@ public sealed class SessionController
             gatesPassed,
             _gatesTotal,
             _gateResults.AsReadOnly(),
-            _runDescriptor?.Id);
+            _runDescriptor?.Id,
+            ScoreBreakdown.FromDeltas(_deltas));
     }
 }

@@ -33,4 +33,5 @@ public sealed record SessionResult(
     int GatesPassed,
     int GatesTotal,
     IReadOnlyList<GateResult> Gates,
-    RunId? RunId = null);
+    RunId? RunId = null,
+    ScoreBreakdown? Breakdown = null);
