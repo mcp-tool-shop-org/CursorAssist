@@ -19,21 +19,14 @@
             </HorizontalStackLayout>
         </Grid>
 
-        <!-- Game surface: pointer events attach here -->
+        <!-- Game surface: pointer events + debug overlay -->
         <Border x:Name="GameSurface"
                 Grid.Row="1"
                 Stroke="#333"
                 StrokeThickness="1"
                 BackgroundColor="#0D0F14"
                 Padding="0">
-            <Grid>
-                <Label x:Name="PointerLabel"
-                       Text="Move mouse here"
-                       TextColor="#444"
-                       FontSize="14"
-                       HorizontalOptions="Center"
-                       VerticalOptions="Center" />
-            </Grid>
+            <GraphicsView x:Name="OverlayView" />
         </Border>
 
         <!-- Log (compact) -->

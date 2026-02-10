@@ -1,5 +1,6 @@
 using MouseTrainer.Core.Events;
 using MouseTrainer.Core.Input;
+using MouseTrainer.Core.Simulation.Debug;
 using MouseTrainer.Core.Utility;
 
 namespace MouseTrainer.Core.Simulation.ReflexGates;
@@ -9,7 +10,7 @@ namespace MouseTrainer.Core.Simulation.ReflexGates;
 /// Auto-scrolling corridor with oscillating gate apertures.
 /// Pure deterministic simulation: no rendering, no platform dependencies.
 /// </summary>
-public sealed class ReflexGateSimulation : IGameSimulation
+public sealed class ReflexGateSimulation : IGameSimulation, ISimDebugOverlay
 {
     private readonly ReflexGateConfig _cfg;
 
@@ -129,6 +130,28 @@ public sealed class ReflexGateSimulation : IGameSimulation
             GameEventType.Tick,
             1f,
             Arg0: (int)(tick % int.MaxValue)));
+    }
+
+    // --- ISimDebugOverlay ---
+
+    public bool TryGetGatePreview(float simTimeSeconds, out GatePreview preview)
+    {
+        if (_gates.Length == 0 || _nextGateIndex >= _gates.Length)
+        {
+            preview = default;
+            return false;
+        }
+
+        ref readonly var g = ref _gates[_nextGateIndex];
+
+        preview = new GatePreview(
+            WallX: g.WallX,
+            CenterY: g.CurrentCenterY(simTimeSeconds),
+            ApertureHeight: g.ApertureHeight,
+            GateIndex: _nextGateIndex,
+            ScrollX: _scrollPosition);
+
+        return true;
     }
 
     private Gate[] GenerateGates(uint sessionSeed)
