@@ -3,54 +3,32 @@ using MouseTrainer.Audio.Assets;
 using MouseTrainer.Audio.Core;
 using MouseTrainer.Domain.Events;
 using MouseTrainer.Domain.Input;
-using MouseTrainer.Domain.Runs;
 using MouseTrainer.Simulation.Core;
-using MouseTrainer.Simulation.Modes.ReflexGates;
-using MouseTrainer.Simulation.Mutators;
-using MouseTrainer.Simulation.Replay;
-using MouseTrainer.Simulation.Session;
 using Plugin.Maui.Audio;
 
 namespace MouseTrainer.MauiHost;
 
 public partial class MainPage : ContentPage
 {
-    private readonly ReflexGateSimulation _sim;
     private readonly DeterministicLoop _loop;
     private readonly MauiAudioSink _sink;
     private readonly AudioDirector _audio;
-    private readonly SessionController _session = new();
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
 
     private readonly RendererState _overlayState = new();
     private readonly int _fixedHz = 60;
-    private readonly int _gateCount;
 
     // --- Effects systems ---
     private readonly TrailBuffer _trailBuffer = new(16);
     private readonly ParticleSystem _particles = new(32);
     private readonly ScreenShake _shake = new();
 
-    // --- Live gate results (for rendering pass/miss before session ends) ---
-    private readonly List<GateResult> _liveGateResults = new(16);
-
     // --- Persistence ---
     private readonly SessionStore _store;
 
-    // --- Replay recording & ghost playback ---
-    private readonly string _replayDir;
-    private readonly GhostPlayback _ghost = new();
-    private readonly TrailBuffer _ghostTrailBuffer = new(8);
-    private ReplayRecorder? _recorder;
-    private long _prevTick;
-    private bool _ghostEnabled;
-
-    private readonly ReflexGateGenerator _generator;
-    private readonly MutatorPipeline _mutatorPipeline;
     private IDispatcherTimer? _timer;
     private long _frame;
-    private uint _currentSeed = 0xC0FFEEu;
-    private RunDescriptor _currentRun;
+    private long _prevTick;
 
     // --- Pointer state (sampled by host, consumed by sim) ---
     private float _latestX;
@@ -60,59 +38,38 @@ public partial class MainPage : ContentPage
     private const float VirtualW = 1920f;
     private const float VirtualH = 1080f;
 
+    // --- Sandbox state ---
+    private bool _running;
+
     public MainPage()
     {
         InitializeComponent();
 
-        var cfg = new ReflexGateConfig();
-        _gateCount = cfg.GateCount;
-        _sim = new ReflexGateSimulation(cfg);
-        _generator = new ReflexGateGenerator(cfg);
-
-        var mutatorRegistry = new MutatorRegistry();
-        mutatorRegistry.Register(MutatorId.NarrowMargin, 1, spec => new NarrowMarginMutator(spec));
-        mutatorRegistry.Register(MutatorId.WideMargin, 1, spec => new WideMarginMutator(spec));
-        mutatorRegistry.Register(MutatorId.DifficultyCurve, 1, spec => new DifficultyCurveMutator(spec));
-        mutatorRegistry.Register(MutatorId.RhythmLock, 1, spec => new RhythmLockMutator(spec));
-        mutatorRegistry.Register(MutatorId.GateJitter, 1, spec => new GateJitterMutator(spec));
-        mutatorRegistry.Register(MutatorId.SegmentBias, 1, spec => new SegmentBiasMutator(spec));
-        _mutatorPipeline = new MutatorPipeline(mutatorRegistry);
-
-        _currentRun = RunDescriptor.Create(ModeId.ReflexGates, _currentSeed);
-        _loop = new DeterministicLoop(_sim, new DeterministicConfig
+        // Sandbox: no game simulation — loop ticks with a null sim
+        _loop = new DeterministicLoop(new NullSimulation(), new DeterministicConfig
         {
             FixedHz = _fixedHz,
             MaxStepsPerFrame = 6,
-            SessionSeed = _currentSeed
+            SessionSeed = 0
         });
 
         _sink = new MauiAudioSink(AudioManager.Current, log: AppendLog);
         _audio = new AudioDirector(AudioCueMap.Default(), _sink);
         _store = new SessionStore(log: AppendLog);
 
-        _replayDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "MouseTrainer", "replays", "pb");
-
         // Wire effects systems into renderer state
         _overlayState.Trail = _trailBuffer;
         _overlayState.Particles = _particles;
-        _overlayState.GateCount = _gateCount;
 
         OverlayView.Drawable = new GameRenderer(_overlayState);
         AttachPointerInput();
 
-        // Initialize session to Ready
-        _session.ResetToReady(_currentRun, _gateCount);
-        _overlayState.SessionPhase = SessionState.Ready;
-        _overlayState.Seed = _currentSeed;
-        PopulateGatesAtRest();
-        SeedLabel.Text = $"Seed: 0x{_currentSeed:X8}";
+        // Start in sandbox idle state
+        _overlayState.SessionPhase = SandboxPhase.Idle;
         OverlayView.Invalidate();
 
         _ = VerifyAssetsAsync();
-        _ = LoadStatsAsync();
-        AppendLog($"> Host started. FixedHz={_fixedHz}  Seed=0x{_currentSeed:X8}");
+        AppendLog($"> Sandbox host started. FixedHz={_fixedHz}");
     }
 
     // ------------------------------------------------------------------
@@ -189,136 +146,54 @@ public partial class MainPage : ContentPage
         => new PointerInput(_latestX, _latestY, _primaryDown, false, _stopwatch.ElapsedTicks);
 
     // ------------------------------------------------------------------
-    //  Session flow: Ready -> Playing -> Results
+    //  Sandbox controls
     // ------------------------------------------------------------------
 
     private void OnActionClicked(object sender, EventArgs e)
     {
-        switch (_session.State)
-        {
-            case SessionState.Ready:
-                StartSession();
-                break;
-
-            case SessionState.Playing:
-                break;
-
-            case SessionState.Results:
-                ResetSession(_currentSeed);
-                StartSession();
-                break;
-        }
+        if (_running)
+            StopSandbox();
+        else
+            StartSandbox();
     }
 
-    private void OnNewSeedClicked(object sender, EventArgs e)
+    private void StartSandbox()
     {
-        StopTimer();
-        _currentSeed = (uint)Environment.TickCount;
-        _currentRun = RunDescriptor.Create(ModeId.ReflexGates, _currentSeed);
-        ResetSession(_currentSeed);
-    }
-
-    private void OnGhostToggled(object sender, ToggledEventArgs e)
-    {
-        _ghostEnabled = e.Value;
-        AppendLog($"> Race PB: {(_ghostEnabled ? "ON" : "OFF")}");
-    }
-
-    private void StartSession()
-    {
-        _currentRun = RunDescriptor.Create(ModeId.ReflexGates, _currentSeed);
-        _loop.Reset(_currentSeed);
-        _session.ResetToReady(_currentRun, _gateCount);
-        _session.Start();
-
+        _loop.Reset(0);
         _frame = 0;
         _prevTick = 0;
-        _liveGateResults.Clear();
         _trailBuffer.Clear();
         _particles.Clear();
         _shake.Clear();
-        _overlayState.ActiveFlashes.Clear();
-
-        // Start replay recording
-        _recorder = new ReplayRecorder();
-
-        // Load ghost (PB replay) if enabled
-        _ghostTrailBuffer.Clear();
-        _overlayState.GhostTrail = _ghostTrailBuffer;
-        _overlayState.GhostActive = false;
-
-        if (_ghostEnabled)
-        {
-            if (_ghost.TryLoad(_currentRun.Id, _replayDir, AppendLog))
-            {
-                _ghost.Reset();
-                _overlayState.GhostActive = true;
-                AppendLog("> Ghost loaded — racing your PB.");
-            }
-        }
+        _running = true;
 
         _timer = Dispatcher.CreateTimer();
         _timer.Interval = TimeSpan.FromMilliseconds(16);
         _timer.Tick += (_, _) => StepOnce();
         _timer.Start();
 
-        _overlayState.SessionPhase = SessionState.Playing;
-        _overlayState.Score = 0;
-        _overlayState.Combo = 0;
-        _overlayState.LastResult = null;
-
-        // Ambient music disabled by default (too harsh for current mode)
-        // _sink.StartLoop(new AudioCue("amb_zen_loop.wav", Volume: 0.25f, Loop: true), "amb");
-
-        ActionButton.Text = "Playing...";
-        ActionButton.IsEnabled = false;
-        ActionButton.BackgroundColor = Color.FromArgb("#666666");
-        StatusLabel.Text = "Playing";
+        _overlayState.SessionPhase = SandboxPhase.Running;
+        ActionButton.Text = "Stop";
+        ActionButton.BackgroundColor = Color.FromArgb("#FF5722");
+        StatusLabel.Text = "Running";
         StatusLabel.TextColor = Color.FromArgb("#4CAF50");
 
-        AppendLog($"> Session started. Seed=0x{_currentSeed:X8}");
+        AppendLog("> Sandbox started.");
     }
 
-    private void ResetSession(uint seed)
+    private void StopSandbox()
     {
         StopTimer();
-        _sink.StopLoop("amb");
+        _running = false;
 
-        _currentSeed = seed;
-        _currentRun = RunDescriptor.Create(ModeId.ReflexGates, seed);
-        _session.ResetToReady(_currentRun, _gateCount);
-        _loop.Reset(seed);
-
-        _liveGateResults.Clear();
-        _trailBuffer.Clear();
-        _particles.Clear();
-        _shake.Clear();
-        _overlayState.ActiveFlashes.Clear();
-
-        // Clean up replay/ghost state
-        _recorder = null;
-        _ghost.Disable();
-        _ghostTrailBuffer.Clear();
-        _overlayState.GhostActive = false;
-
-        _overlayState.SessionPhase = SessionState.Ready;
-        _overlayState.Seed = seed;
-        _overlayState.Score = 0;
-        _overlayState.Combo = 0;
-        _overlayState.LastResult = null;
-        _overlayState.Bests = _store.GetPersonalBests(currentSeed: seed);
-        _overlayState.Lifetime = _store.GetLifetimeStats();
-        PopulateGatesAtRest();
-
+        _overlayState.SessionPhase = SandboxPhase.Idle;
         ActionButton.Text = "Start";
-        ActionButton.IsEnabled = true;
         ActionButton.BackgroundColor = Color.FromArgb("#4CAF50");
-        StatusLabel.Text = "Ready";
+        StatusLabel.Text = "Idle";
         StatusLabel.TextColor = Color.FromArgb("#888888");
-        SeedLabel.Text = $"Seed: 0x{seed:X8}";
 
         OverlayView.Invalidate();
-        AppendLog($"> Reset. Seed=0x{seed:X8}");
+        AppendLog("> Sandbox stopped.");
     }
 
     private void StopTimer()
@@ -329,216 +204,28 @@ public partial class MainPage : ContentPage
     }
 
     // ------------------------------------------------------------------
-    //  Gate data helpers
-    // ------------------------------------------------------------------
-
-    /// <summary>
-    /// Populate all gates at rest positions (simTime=0) for the Ready screen preview.
-    /// </summary>
-    private void PopulateGatesAtRest()
-    {
-        _overlayState.Gates.Clear();
-        _overlayState.ScrollPosition = 0f;
-
-        for (int i = 0; i < _sim.Gates.Count; i++)
-        {
-            var gate = _sim.Gates[i];
-            float difficulty = _sim.Gates.Count <= 1 ? 0f : (float)i / (_sim.Gates.Count - 1);
-            _overlayState.Gates.Add(new GateRenderData(
-                WallX: gate.WallX,
-                CenterY: gate.CurrentCenterY(0f),
-                ApertureHeight: gate.ApertureHeight,
-                GateIndex: i,
-                Difficulty: difficulty,
-                Status: GateVisualStatus.Upcoming));
-        }
-    }
-
-    /// <summary>
-    /// Populate all gates with live positions and pass/miss status.
-    /// </summary>
-    private void PopulateGatesLive(float simTime)
-    {
-        _overlayState.Gates.Clear();
-        _overlayState.ScrollPosition = _sim.ScrollPosition;
-
-        for (int i = 0; i < _sim.Gates.Count; i++)
-        {
-            var gate = _sim.Gates[i];
-            float difficulty = _sim.Gates.Count <= 1 ? 0f : (float)i / (_sim.Gates.Count - 1);
-
-            GateVisualStatus status;
-            if (i < _sim.NextGateIndex)
-            {
-                status = (i < _liveGateResults.Count && _liveGateResults[i].Passed)
-                    ? GateVisualStatus.Passed
-                    : GateVisualStatus.Missed;
-            }
-            else
-            {
-                status = GateVisualStatus.Upcoming;
-            }
-
-            _overlayState.Gates.Add(new GateRenderData(
-                WallX: gate.WallX,
-                CenterY: gate.CurrentCenterY(simTime),
-                ApertureHeight: gate.ApertureHeight,
-                GateIndex: i,
-                Difficulty: difficulty,
-                Status: status));
-        }
-    }
-
-    // ------------------------------------------------------------------
-    //  Simulation loop
+    //  Simulation loop (sandbox — cursor + trail + effects, no game events)
     // ------------------------------------------------------------------
 
     private void StepOnce()
     {
-        if (_session.State != SessionState.Playing) return;
+        if (!_running) return;
 
         var input = SamplePointer();
         var nowTicks = _stopwatch.ElapsedTicks;
         var result = _loop.Step(input, nowTicks, Stopwatch.Frequency);
 
-        // Recording: capture input for each tick advanced
         int ticksAdvanced = (int)(result.Tick - _prevTick);
         _prevTick = result.Tick;
-
-        if (_recorder != null && ticksAdvanced > 0)
-        {
-            for (int i = 0; i < ticksAdvanced; i++)
-                _recorder.RecordTick(input);
-        }
-
-        // Ghost playback: advance in lockstep with sim ticks
-        if (_ghost.Active && ticksAdvanced > 0)
-        {
-            _ghost.AdvanceTicks(ticksAdvanced);
-            _overlayState.GhostX = _ghost.X;
-            _overlayState.GhostY = _ghost.Y;
-            _overlayState.GhostActive = _ghost.Active;
-
-            float ghostSimTime = (result.Tick + Math.Clamp(result.Alpha, 0f, 1f)) * (1f / _fixedHz);
-            _ghostTrailBuffer.Push(_ghost.X, _ghost.Y, ghostSimTime);
-        }
-        else if (!_ghost.Active)
-        {
-            _overlayState.GhostActive = false;
-        }
 
         float alpha = Math.Clamp(result.Alpha, 0f, 1f);
         float simTime = (result.Tick + alpha) * (1f / _fixedHz);
         float dt = 1f / _fixedHz;
 
-        // Process events through session controller + audio + effects
-        if (result.Events.Count > 0)
-        {
-            // Track gate results for live rendering + spawn effects
-            foreach (var ev in result.Events)
-            {
-                if (ev.Type == GameEventType.EnteredGate)
-                {
-                    float offset = (1f - ev.Intensity) * 2f;
-                    _liveGateResults.Add(new GateResult(ev.Arg0, true, ev.Arg1, offset));
-
-                    // Spawn pass burst + flash
-                    int gateIdx = ev.Arg0;
-                    if (gateIdx < _sim.Gates.Count)
-                    {
-                        var gate = _sim.Gates[gateIdx];
-                        float cy = gate.CurrentCenterY(simTime);
-                        float diff = _sim.Gates.Count <= 1 ? 0f
-                            : (float)gateIdx / (_sim.Gates.Count - 1);
-                        var color = NeonPalette.GateDifficultyColor(diff);
-                        _particles.SpawnPassBurst(gate.WallX, cy, color);
-                        _overlayState.ActiveFlashes.Add(new RendererState.GateFlash
-                        {
-                            CenterX = gate.WallX,
-                            CenterY = cy,
-                            Remaining = 0.2f,
-                            Color = color
-                        });
-                    }
-                }
-                else if (ev.Type == GameEventType.HitWall)
-                {
-                    float miss = ev.Arg1 / 1000f;
-                    _liveGateResults.Add(new GateResult(ev.Arg0, false, 0, 1f + miss));
-
-                    // Spawn miss burst + shake
-                    int gateIdx = ev.Arg0;
-                    if (gateIdx < _sim.Gates.Count)
-                    {
-                        var gate = _sim.Gates[gateIdx];
-                        float cy = gate.CurrentCenterY(simTime);
-                        _particles.SpawnMissBurst(gate.WallX, cy);
-                        _shake.Trigger(amplitude: 6f + ev.Intensity * 4f, duration: 0.12f);
-                    }
-                }
-            }
-
-            bool transitioned = _session.ApplyEvents(result.Events);
-            _audio.Process(result.Events, result.Tick, sessionSeed: _currentSeed);
-
-            if (transitioned)
-            {
-                StopTimer();
-                _sink.StopLoop("amb");
-
-                _overlayState.SessionPhase = SessionState.Results;
-                _overlayState.LastResult = _session.GetResult();
-                _overlayState.GhostActive = false;
-
-                // Finalize replay recording and save PB if better
-                if (_overlayState.LastResult is { } finalResult && _recorder != null)
-                {
-                    if (finalResult.EventHash is { } eventHash)
-                    {
-                        try
-                        {
-                            var envelope = _recorder.Finalize(
-                                _currentRun, _fixedHz, finalResult, eventHash);
-                            SavePbIfBetter(envelope);
-                        }
-                        catch (Exception ex)
-                        {
-                            AppendLog($"> Replay finalize failed: {ex.Message}");
-                        }
-                    }
-                    _recorder = null;
-                }
-
-                // Persist session + load PBs for results screen
-                if (_overlayState.LastResult is { } finalResult2)
-                {
-                    // Get PBs *before* saving so "new record" detection works correctly
-                    _overlayState.Bests = _store.GetPersonalBests(currentSeed: _currentSeed);
-                    _overlayState.Lifetime = _store.GetLifetimeStats();
-                    _ = _store.SaveSessionAsync(finalResult2);
-                }
-
-                ActionButton.Text = "Retry";
-                ActionButton.IsEnabled = true;
-                ActionButton.BackgroundColor = Color.FromArgb("#4CAF50");
-                StatusLabel.Text = "Complete";
-                StatusLabel.TextColor = Color.FromArgb("#FFD700");
-
-                OverlayView.Invalidate();
-                AppendLog($"> Session complete! Score={_session.TotalScore}  MaxCombo={_session.MaxCombo}  Time={_session.Elapsed.TotalSeconds:0.0}s");
-                return;
-            }
-        }
-
         // Update renderer state
         _overlayState.Tick = result.Tick;
         _overlayState.SimTime = simTime;
         _overlayState.Alpha = result.Alpha;
-        _overlayState.Score = _session.TotalScore;
-        _overlayState.Combo = _session.CurrentCombo;
-
-        // Populate all gates with live positions
-        PopulateGatesLive(simTime);
 
         // Push cursor trail point
         _trailBuffer.Push(_latestX, _latestY, simTime);
@@ -547,86 +234,17 @@ public partial class MainPage : ContentPage
         _particles.Update(dt);
         _shake.Update(dt, _overlayState);
 
-        // Decay gate flashes
-        for (int i = _overlayState.ActiveFlashes.Count - 1; i >= 0; i--)
-        {
-            var f = _overlayState.ActiveFlashes[i];
-            f.Remaining -= dt;
-            if (f.Remaining <= 0f)
-                _overlayState.ActiveFlashes.RemoveAt(i);
-            else
-                _overlayState.ActiveFlashes[i] = f;
-        }
-
         _frame++;
         if (_frame % 2 == 0)
             OverlayView.Invalidate();
 
-        if (_frame % 60 == 0)
-            AppendLog($"> tick={result.Tick} Y={_latestY:0} score={_session.TotalScore} combo={_session.CurrentCombo}");
-    }
-
-    // ------------------------------------------------------------------
-    //  Replay PB storage
-    // ------------------------------------------------------------------
-
-    private string GetPbPath(RunId runId)
-        => Path.Combine(_replayDir, $"{runId}.mtr");
-
-    private void SavePbIfBetter(ReplayEnvelope envelope)
-    {
-        try
-        {
-            string path = GetPbPath(envelope.RunId);
-            int existingScore = int.MinValue;
-
-            if (File.Exists(path))
-            {
-                try
-                {
-                    using var fs = File.OpenRead(path);
-                    var existing = ReplaySerializer.Read(fs);
-                    existingScore = existing.FinalScore;
-                }
-                catch
-                {
-                    // Corrupt PB file — overwrite it
-                    existingScore = int.MinValue;
-                }
-            }
-
-            if (envelope.FinalScore > existingScore)
-            {
-                Directory.CreateDirectory(_replayDir);
-                using var ws = File.Create(path);
-                ReplaySerializer.Write(envelope, ws);
-                AppendLog($"> PB saved! Score={envelope.FinalScore} → {path}");
-            }
-            else
-            {
-                AppendLog($"> Score {envelope.FinalScore} did not beat PB {existingScore}.");
-            }
-        }
-        catch (Exception ex)
-        {
-            AppendLog($"> PB save failed: {ex.Message}");
-        }
+        if (_frame % 300 == 0)
+            AppendLog($"> tick={result.Tick} pos=({_latestX:0},{_latestY:0}) primary={_primaryDown}");
     }
 
     // ------------------------------------------------------------------
     //  Assets
     // ------------------------------------------------------------------
-
-    private async Task LoadStatsAsync()
-    {
-        await _store.LoadAsync();
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            _overlayState.Bests = _store.GetPersonalBests(currentSeed: _currentSeed);
-            _overlayState.Lifetime = _store.GetLifetimeStats();
-            OverlayView.Invalidate();
-        });
-    }
 
     private async Task VerifyAssetsAsync()
     {
@@ -654,4 +272,13 @@ public partial class MainPage : ContentPage
             LogLabel.Text += line + Environment.NewLine;
         });
     }
+}
+
+/// <summary>
+/// No-op simulation for sandbox mode. The deterministic loop ticks but no game events are produced.
+/// </summary>
+internal sealed class NullSimulation : IGameSimulation
+{
+    public void Reset(uint sessionSeed) { }
+    public void FixedUpdate(long tick, float dt, in PointerInput input, List<GameEvent> events) { }
 }
