@@ -22,7 +22,7 @@
         <!-- Game surface: pointer events + debug overlay -->
         <Border x:Name="GameSurface"
                 Grid.Row="1"
-                Stroke="#333"
+                Stroke="Transparent"
                 StrokeThickness="1"
                 BackgroundColor="#0D0F14"
                 Padding="0">
