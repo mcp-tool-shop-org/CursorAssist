@@ -122,7 +122,7 @@ public sealed class SessionController
                         0,
                         1f + missDistance));
                     _deltas.Add(new ScoreDelta(
-                        ScoreComponentId.GateScore,
+                        ScoreComponentId.MissPenalty,
                         0,
                         ev.Arg0,
                         0));

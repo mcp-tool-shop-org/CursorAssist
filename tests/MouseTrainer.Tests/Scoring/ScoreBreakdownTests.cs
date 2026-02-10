@@ -38,8 +38,9 @@ public class ScoreBreakdownTests
         var bd = result.Breakdown;
         Assert.Equal(190, bd.Total);
         Assert.Equal(3, bd.DeltaCount);
-        Assert.Single(bd.TotalsByComponent);
+        Assert.Equal(2, bd.TotalsByComponent.Count);
         Assert.Equal(190, bd.TotalsByComponent[ScoreComponentId.GateScore]);
+        Assert.Equal(0, bd.TotalsByComponent[ScoreComponentId.MissPenalty]);
     }
 
     // ── 2. Conservation invariant ──
@@ -87,6 +88,9 @@ public class ScoreBreakdownTests
         Assert.Equal(
             bd1.TotalsByComponent[ScoreComponentId.GateScore],
             bd2.TotalsByComponent[ScoreComponentId.GateScore]);
+        Assert.Equal(
+            bd1.TotalsByComponent[ScoreComponentId.MissPenalty],
+            bd2.TotalsByComponent[ScoreComponentId.MissPenalty]);
     }
 
     // ── 4. Combo tracking + delta count ──
@@ -145,7 +149,8 @@ public class ScoreBreakdownTests
         var bd = sc.GetResult()!.Breakdown!;
         Assert.Equal(0, bd.Total);
         Assert.Equal(2, bd.DeltaCount);
-        Assert.Equal(0, bd.TotalsByComponent[ScoreComponentId.GateScore]);
+        Assert.Single(bd.TotalsByComponent);
+        Assert.Equal(0, bd.TotalsByComponent[ScoreComponentId.MissPenalty]);
     }
 
     // ── 6. DeltaCount == gate result count ──
