@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using MouseTrainer.Audio.Assets;
 using MouseTrainer.Audio.Core;
+using MouseTrainer.Domain.Events;
 using MouseTrainer.Domain.Input;
 using MouseTrainer.Simulation.Core;
-using MouseTrainer.Simulation.Debug;
 using MouseTrainer.Simulation.Modes.ReflexGates;
 using MouseTrainer.Simulation.Session;
 using Plugin.Maui.Audio;
@@ -19,9 +19,17 @@ public partial class MainPage : ContentPage
     private readonly SessionController _session = new();
     private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
 
-    private readonly DebugOverlayState _overlayState = new();
+    private readonly RendererState _overlayState = new();
     private readonly int _fixedHz = 60;
     private readonly int _gateCount;
+
+    // --- Effects systems ---
+    private readonly TrailBuffer _trailBuffer = new(16);
+    private readonly ParticleSystem _particles = new(32);
+    private readonly ScreenShake _shake = new();
+
+    // --- Live gate results (for rendering pass/miss before session ends) ---
+    private readonly List<GateResult> _liveGateResults = new(16);
 
     private IDispatcherTimer? _timer;
     private long _frame;
@@ -52,13 +60,19 @@ public partial class MainPage : ContentPage
         _sink = new MauiAudioSink(AudioManager.Current, log: AppendLog);
         _audio = new AudioDirector(AudioCueMap.Default(), _sink);
 
-        OverlayView.Drawable = new DebugOverlayDrawable(_overlayState);
+        // Wire effects systems into renderer state
+        _overlayState.Trail = _trailBuffer;
+        _overlayState.Particles = _particles;
+        _overlayState.GateCount = _gateCount;
+
+        OverlayView.Drawable = new GameRenderer(_overlayState);
         AttachPointerInput();
 
         // Initialize session to Ready
         _session.ResetToReady(_currentSeed, _gateCount);
         _overlayState.SessionPhase = SessionState.Ready;
         _overlayState.Seed = _currentSeed;
+        PopulateGatesAtRest();
         SeedLabel.Text = $"Seed: 0x{_currentSeed:X8}";
         OverlayView.Invalidate();
 
@@ -123,7 +137,6 @@ public partial class MainPage : ContentPage
         var offsetX = (w - contentW) * 0.5f;
         var offsetY = (h - contentH) * 0.5f;
 
-        // Store mapping params for overlay drawing
         _overlayState.OffsetX = offsetX;
         _overlayState.OffsetY = offsetY;
         _overlayState.Scale = scale;
@@ -141,7 +154,7 @@ public partial class MainPage : ContentPage
         => new PointerInput(_latestX, _latestY, _primaryDown, false, _stopwatch.ElapsedTicks);
 
     // ------------------------------------------------------------------
-    //  Session flow: Ready → Playing → Results
+    //  Session flow: Ready -> Playing -> Results
     // ------------------------------------------------------------------
 
     private void OnActionClicked(object sender, EventArgs e)
@@ -153,11 +166,9 @@ public partial class MainPage : ContentPage
                 break;
 
             case SessionState.Playing:
-                // No manual stop — session ends at LevelComplete
                 break;
 
             case SessionState.Results:
-                // Retry with same seed
                 ResetSession(_currentSeed);
                 StartSession();
                 break;
@@ -178,6 +189,11 @@ public partial class MainPage : ContentPage
         _session.Start();
 
         _frame = 0;
+        _liveGateResults.Clear();
+        _trailBuffer.Clear();
+        _particles.Clear();
+        _shake.Clear();
+        _overlayState.ActiveFlashes.Clear();
 
         _timer = Dispatcher.CreateTimer();
         _timer.Interval = TimeSpan.FromMilliseconds(16);
@@ -187,7 +203,6 @@ public partial class MainPage : ContentPage
         _overlayState.SessionPhase = SessionState.Playing;
         _overlayState.Score = 0;
         _overlayState.Combo = 0;
-        _overlayState.HasGate = false;
         _overlayState.LastResult = null;
 
         // Start ambient music loop
@@ -209,13 +224,20 @@ public partial class MainPage : ContentPage
 
         _currentSeed = seed;
         _session.ResetToReady(seed, _gateCount);
+        _loop.Reset(seed);
+
+        _liveGateResults.Clear();
+        _trailBuffer.Clear();
+        _particles.Clear();
+        _shake.Clear();
+        _overlayState.ActiveFlashes.Clear();
 
         _overlayState.SessionPhase = SessionState.Ready;
         _overlayState.Seed = seed;
         _overlayState.Score = 0;
         _overlayState.Combo = 0;
-        _overlayState.HasGate = false;
         _overlayState.LastResult = null;
+        PopulateGatesAtRest();
 
         ActionButton.Text = "Start";
         ActionButton.IsEnabled = true;
@@ -236,6 +258,67 @@ public partial class MainPage : ContentPage
     }
 
     // ------------------------------------------------------------------
+    //  Gate data helpers
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Populate all gates at rest positions (simTime=0) for the Ready screen preview.
+    /// </summary>
+    private void PopulateGatesAtRest()
+    {
+        _overlayState.Gates.Clear();
+        _overlayState.ScrollPosition = 0f;
+
+        for (int i = 0; i < _sim.Gates.Count; i++)
+        {
+            var gate = _sim.Gates[i];
+            float difficulty = _sim.Gates.Count <= 1 ? 0f : (float)i / (_sim.Gates.Count - 1);
+            _overlayState.Gates.Add(new GateRenderData(
+                WallX: gate.WallX,
+                CenterY: gate.CurrentCenterY(0f),
+                ApertureHeight: gate.ApertureHeight,
+                GateIndex: i,
+                Difficulty: difficulty,
+                Status: GateVisualStatus.Upcoming));
+        }
+    }
+
+    /// <summary>
+    /// Populate all gates with live positions and pass/miss status.
+    /// </summary>
+    private void PopulateGatesLive(float simTime)
+    {
+        _overlayState.Gates.Clear();
+        _overlayState.ScrollPosition = _sim.ScrollPosition;
+
+        for (int i = 0; i < _sim.Gates.Count; i++)
+        {
+            var gate = _sim.Gates[i];
+            float difficulty = _sim.Gates.Count <= 1 ? 0f : (float)i / (_sim.Gates.Count - 1);
+
+            GateVisualStatus status;
+            if (i < _sim.NextGateIndex)
+            {
+                status = (i < _liveGateResults.Count && _liveGateResults[i].Passed)
+                    ? GateVisualStatus.Passed
+                    : GateVisualStatus.Missed;
+            }
+            else
+            {
+                status = GateVisualStatus.Upcoming;
+            }
+
+            _overlayState.Gates.Add(new GateRenderData(
+                WallX: gate.WallX,
+                CenterY: gate.CurrentCenterY(simTime),
+                ApertureHeight: gate.ApertureHeight,
+                GateIndex: i,
+                Difficulty: difficulty,
+                Status: status));
+        }
+    }
+
+    // ------------------------------------------------------------------
     //  Simulation loop
     // ------------------------------------------------------------------
 
@@ -247,15 +330,61 @@ public partial class MainPage : ContentPage
         var nowTicks = _stopwatch.ElapsedTicks;
         var result = _loop.Step(input, nowTicks, Stopwatch.Frequency);
 
-        // Process events through session controller + audio
+        float simTime = result.Tick * (1f / _fixedHz);
+        float dt = 1f / _fixedHz;
+
+        // Process events through session controller + audio + effects
         if (result.Events.Count > 0)
         {
+            // Track gate results for live rendering + spawn effects
+            foreach (var ev in result.Events)
+            {
+                if (ev.Type == GameEventType.EnteredGate)
+                {
+                    float offset = (1f - ev.Intensity) * 2f;
+                    _liveGateResults.Add(new GateResult(ev.Arg0, true, ev.Arg1, offset));
+
+                    // Spawn pass burst + flash
+                    int gateIdx = ev.Arg0;
+                    if (gateIdx < _sim.Gates.Count)
+                    {
+                        var gate = _sim.Gates[gateIdx];
+                        float cy = gate.CurrentCenterY(simTime);
+                        float diff = _sim.Gates.Count <= 1 ? 0f
+                            : (float)gateIdx / (_sim.Gates.Count - 1);
+                        var color = NeonPalette.GateDifficultyColor(diff);
+                        _particles.SpawnPassBurst(gate.WallX, cy, color);
+                        _overlayState.ActiveFlashes.Add(new RendererState.GateFlash
+                        {
+                            CenterX = gate.WallX,
+                            CenterY = cy,
+                            Remaining = 0.2f,
+                            Color = color
+                        });
+                    }
+                }
+                else if (ev.Type == GameEventType.HitWall)
+                {
+                    float miss = ev.Arg1 / 1000f;
+                    _liveGateResults.Add(new GateResult(ev.Arg0, false, 0, 1f + miss));
+
+                    // Spawn miss burst + shake
+                    int gateIdx = ev.Arg0;
+                    if (gateIdx < _sim.Gates.Count)
+                    {
+                        var gate = _sim.Gates[gateIdx];
+                        float cy = gate.CurrentCenterY(simTime);
+                        _particles.SpawnMissBurst(gate.WallX, cy);
+                        _shake.Trigger(amplitude: 6f + ev.Intensity * 4f, duration: 0.12f);
+                    }
+                }
+            }
+
             bool transitioned = _session.ApplyEvents(result.Events);
             _audio.Process(result.Events, result.Tick, sessionSeed: _currentSeed);
 
             if (transitioned)
             {
-                // Session complete — stop the loop and ambient, show results
                 StopTimer();
                 _sink.StopLoop("amb");
 
@@ -274,25 +403,32 @@ public partial class MainPage : ContentPage
             }
         }
 
-        // Update overlay state from session controller
+        // Update renderer state
         _overlayState.Tick = result.Tick;
+        _overlayState.SimTime = simTime;
+        _overlayState.Alpha = result.Alpha;
         _overlayState.Score = _session.TotalScore;
         _overlayState.Combo = _session.CurrentCombo;
 
-        // Gate preview via optional debug interface
-        float simTime = result.Tick * (1f / _fixedHz);
-        if (_sim is ISimDebugOverlay dbg && dbg.TryGetGatePreview(simTime, out var gate))
+        // Populate all gates with live positions
+        PopulateGatesLive(simTime);
+
+        // Push cursor trail point
+        _trailBuffer.Push(_latestX, _latestY, simTime);
+
+        // Update effects systems
+        _particles.Update(dt);
+        _shake.Update(dt, _overlayState);
+
+        // Decay gate flashes
+        for (int i = _overlayState.ActiveFlashes.Count - 1; i >= 0; i--)
         {
-            _overlayState.HasGate = true;
-            _overlayState.GateWallX = gate.WallX;
-            _overlayState.GateCenterY = gate.CenterY;
-            _overlayState.GateApertureHeight = gate.ApertureHeight;
-            _overlayState.GateIndex = gate.GateIndex;
-            _overlayState.ScrollX = gate.ScrollX;
-        }
-        else
-        {
-            _overlayState.HasGate = false;
+            var f = _overlayState.ActiveFlashes[i];
+            f.Remaining -= dt;
+            if (f.Remaining <= 0f)
+                _overlayState.ActiveFlashes.RemoveAt(i);
+            else
+                _overlayState.ActiveFlashes[i] = f;
         }
 
         _frame++;
