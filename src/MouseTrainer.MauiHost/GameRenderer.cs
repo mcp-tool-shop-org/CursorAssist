@@ -368,12 +368,12 @@ public sealed class GameRenderer : IDrawable
     private static void DrawBackground(ICanvas canvas, float ox, float oy, float cw, float ch)
     {
         var gradient = new LinearGradientPaint(
-            new Point(0, 0), new Point(0, 1),
             new PaintGradientStop[]
             {
                 new(0f, NeonPalette.BgDeep),
                 new(1f, NeonPalette.BgMid)
-            });
+            },
+            new Point(0, 0), new Point(0, 1));
         canvas.SetFillPaint(gradient, new RectF(ox, oy, cw, ch));
         canvas.FillRectangle(ox, oy, cw, ch);
     }

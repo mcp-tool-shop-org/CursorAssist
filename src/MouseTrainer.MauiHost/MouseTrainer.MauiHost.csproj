@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <!-- Override Directory.Build.props TFM — MAUI needs the platform suffix -->
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <RootNamespace>MouseTrainer.MauiHost</RootNamespace>
     <UseMaui>true</UseMaui>
@@ -13,6 +13,8 @@
     <ApplicationId>com.mcptoolshop.mousetrainer</ApplicationId>
     <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
+    <NoWarn>$(NoWarn);CA1051;CA1001</NoWarn>
+    <WindowsPackageType>None</WindowsPackageType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,7 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.1" />
     <PackageReference Include="Plugin.Maui.Audio" Version="3.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

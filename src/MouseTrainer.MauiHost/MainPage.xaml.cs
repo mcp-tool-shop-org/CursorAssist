@@ -419,15 +419,16 @@ public partial class MainPage : ContentPage
             _overlayState.GhostY = _ghost.Y;
             _overlayState.GhostActive = _ghost.Active;
 
-            float simTimeNow = result.Tick * (1f / _fixedHz);
-            _ghostTrailBuffer.Push(_ghost.X, _ghost.Y, simTimeNow);
+            float ghostSimTime = (result.Tick + Math.Clamp(result.Alpha, 0f, 1f)) * (1f / _fixedHz);
+            _ghostTrailBuffer.Push(_ghost.X, _ghost.Y, ghostSimTime);
         }
         else if (!_ghost.Active)
         {
             _overlayState.GhostActive = false;
         }
 
-        float simTime = result.Tick * (1f / _fixedHz);
+        float alpha = Math.Clamp(result.Alpha, 0f, 1f);
+        float simTime = (result.Tick + alpha) * (1f / _fixedHz);
         float dt = 1f / _fixedHz;
 
         // Process events through session controller + audio + effects
