@@ -64,6 +64,8 @@ public partial class MainPage : ContentPage
         mutatorRegistry.Register(MutatorId.NarrowMargin, 1, spec => new NarrowMarginMutator(spec));
         mutatorRegistry.Register(MutatorId.WideMargin, 1, spec => new WideMarginMutator(spec));
         mutatorRegistry.Register(MutatorId.DifficultyCurve, 1, spec => new DifficultyCurveMutator(spec));
+        mutatorRegistry.Register(MutatorId.RhythmLock, 1, spec => new RhythmLockMutator(spec));
+        mutatorRegistry.Register(MutatorId.GateJitter, 1, spec => new GateJitterMutator(spec));
         _mutatorPipeline = new MutatorPipeline(mutatorRegistry);
 
         _currentRun = RunDescriptor.Create(ModeId.ReflexGates, _currentSeed);

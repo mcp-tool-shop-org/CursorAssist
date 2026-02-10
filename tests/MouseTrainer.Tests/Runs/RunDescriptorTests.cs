@@ -340,4 +340,92 @@ public class RunDescriptorTests
         var run = RunDescriptor.Create(ModeId.ReflexGates, 0xC0FFEEu);
         Assert.Empty(run.Mutators);
     }
+
+    // ─────────────────────────────────────────────────────
+    //  20. Golden hashes — RhythmLock mutator
+    // ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void Create_RhythmLock_NoParams_ProducesStableHash()
+    {
+        var run = RunDescriptor.Create(
+            ModeId.ReflexGates,
+            seed: 0xC0FFEEu,
+            DifficultyTier.Standard,
+            generatorVersion: 1,
+            rulesetVersion: 1,
+            mutators: new[] { MutatorSpec.Create(MutatorId.RhythmLock) });
+
+        Assert.Equal(0xB6A10CC42366DA89UL, run.Id.Value);
+    }
+
+    [Fact]
+    public void Create_RhythmLock_WithDiv_ProducesStableHash()
+    {
+        var run = RunDescriptor.Create(
+            ModeId.ReflexGates,
+            seed: 0xC0FFEEu,
+            DifficultyTier.Standard,
+            generatorVersion: 1,
+            rulesetVersion: 1,
+            mutators: new[]
+            {
+                MutatorSpec.Create(MutatorId.RhythmLock,
+                    parameters: new[] { new MutatorParam("div", 6f) }),
+            });
+
+        Assert.Equal(0xF7D96B8A17173A13UL, run.Id.Value);
+    }
+
+    // ─────────────────────────────────────────────────────
+    //  21. Golden hashes — GateJitter mutator
+    // ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void Create_GateJitter_NoParams_ProducesStableHash()
+    {
+        var run = RunDescriptor.Create(
+            ModeId.ReflexGates,
+            seed: 0xC0FFEEu,
+            DifficultyTier.Standard,
+            generatorVersion: 1,
+            rulesetVersion: 1,
+            mutators: new[] { MutatorSpec.Create(MutatorId.GateJitter) });
+
+        Assert.Equal(0x3376551A855E5217UL, run.Id.Value);
+    }
+
+    [Fact]
+    public void Create_GateJitter_WithStr_ProducesStableHash()
+    {
+        var run = RunDescriptor.Create(
+            ModeId.ReflexGates,
+            seed: 0xC0FFEEu,
+            DifficultyTier.Standard,
+            generatorVersion: 1,
+            rulesetVersion: 1,
+            mutators: new[]
+            {
+                MutatorSpec.Create(MutatorId.GateJitter,
+                    parameters: new[] { new MutatorParam("str", 0.5f) }),
+            });
+
+        Assert.Equal(0x467A88E84F6EE8D4UL, run.Id.Value);
+    }
+
+    // ─────────────────────────────────────────────────────
+    //  22. MutatorId well-known values — Phase 4C1b
+    // ─────────────────────────────────────────────────────
+
+    [Fact]
+    public void MutatorId_RhythmLock_HasExpectedValue()
+    {
+        Assert.Equal("RhythmLock", MutatorId.RhythmLock.Value);
+    }
+
+    [Fact]
+    public void MutatorId_GateJitter_HasExpectedValue()
+    {
+        Assert.Equal("GateJitter", MutatorId.GateJitter.Value);
+    }
 }
