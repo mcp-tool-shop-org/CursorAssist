@@ -100,10 +100,14 @@ public sealed class ReflexGateSimulation : IGameSimulation
                 float missDistance = normalizedOffset - 1f;
                 float intensity = MathF.Min(missDistance, 1f);
 
+                // Arg1 encodes miss distance as int (x1000 for precision)
+                int missDistanceEncoded = (int)(MathF.Min(normalizedOffset - 1f, 10f) * 1000f);
+
                 events.Add(new GameEvent(
                     GameEventType.HitWall,
                     Intensity: intensity,
-                    Arg0: _nextGateIndex));
+                    Arg0: _nextGateIndex,
+                    Arg1: missDistanceEncoded));
             }
 
             _nextGateIndex++;
