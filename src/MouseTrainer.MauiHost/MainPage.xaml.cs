@@ -16,11 +16,18 @@ public partial class MainPage : ContentPage
     private IDispatcherTimer? _timer;
     private long _frame;
 
+    // --- Pointer state (sampled by host, consumed by sim) ---
+    private float _latestX;
+    private float _latestY;
+    private bool _primaryDown;
+
+    private const float VirtualW = 1920f;
+    private const float VirtualH = 1080f;
+
     public MainPage()
     {
         InitializeComponent();
 
-        // Deterministic foundation only:
         _loop = new DeterministicLoop(new ReflexGateSimulation(new ReflexGateConfig()), new DeterministicConfig
         {
             FixedHz = 60,
@@ -30,46 +37,97 @@ public partial class MainPage : ContentPage
 
         _audio = new AudioDirector(AudioCueMap.Default(), new LogAudioSink(AppendLog));
 
+        AttachPointerInput();
         _ = VerifyAssetsAsync();
-        AppendLog($"> Host started. Stopwatch frequency: {Stopwatch.Frequency} ticks/sec");
-        AppendLog($"> Required audio assets: {AssetManifest.RequiredAudio.Length}");
+        AppendLog($"> Host started. Stopwatch freq: {Stopwatch.Frequency} ticks/sec");
     }
 
-    private async Task VerifyAssetsAsync()
+    // ------------------------------------------------------------------
+    //  Pointer input
+    // ------------------------------------------------------------------
+
+    private void AttachPointerInput()
     {
-        try
+        var ptr = new PointerGestureRecognizer();
+
+        ptr.PointerMoved += (_, e) =>
         {
-            var missing = await AssetVerifier.VerifyRequiredAudioAsync(new MauiAssetOpener(), CancellationToken.None);
-            if (missing.Count == 0)
-            {
-                AppendLog($"> Asset check OK. All required audio assets are present.");
-            }
-            else
-            {
-                AppendLog($"> ASSET CHECK FAILED. Missing:");
-                foreach (var m in missing) AppendLog($"  - {m}");
-                AppendLog($"> Fix: ensure these files exist under Resources/Raw and are included as MauiAsset.");
-            }
-        }
-        catch (Exception ex)
+            var p = e.GetPosition(GameSurface);
+            if (p is null) return;
+            (_latestX, _latestY) = DeviceToVirtual((float)p.Value.X, (float)p.Value.Y);
+            UpdatePointerLabel();
+        };
+
+        ptr.PointerPressed += (_, e) =>
         {
-            AppendLog($"> ASSET CHECK ERROR: {ex.GetType().Name}: {ex.Message}");
-        }
+            var p = e.GetPosition(GameSurface);
+            if (p is not null)
+                (_latestX, _latestY) = DeviceToVirtual((float)p.Value.X, (float)p.Value.Y);
+            _primaryDown = true;
+        };
+
+        ptr.PointerReleased += (_, _) =>
+        {
+            _primaryDown = false;
+        };
+
+        GameSurface.GestureRecognizers.Add(ptr);
     }
+
+    private (float X, float Y) DeviceToVirtual(float deviceX, float deviceY)
+    {
+        var w = (float)GameSurface.Width;
+        var h = (float)GameSurface.Height;
+
+        if (w <= 1 || h <= 1)
+            return (0f, 0f);
+
+        // Letterbox-aware mapping: maintain aspect ratio
+        var scale = MathF.Min(w / VirtualW, h / VirtualH);
+        var contentW = VirtualW * scale;
+        var contentH = VirtualH * scale;
+        var offsetX = (w - contentW) * 0.5f;
+        var offsetY = (h - contentH) * 0.5f;
+
+        var x = (deviceX - offsetX) / scale;
+        var y = (deviceY - offsetY) / scale;
+
+        // Clamp to playfield
+        x = MathF.Max(0f, MathF.Min(VirtualW, x));
+        y = MathF.Max(0f, MathF.Min(VirtualH, y));
+
+        return (x, y);
+    }
+
+    private PointerInput SamplePointer()
+    {
+        return new PointerInput(_latestX, _latestY, _primaryDown, false, _stopwatch.ElapsedTicks);
+    }
+
+    private void UpdatePointerLabel()
+    {
+        PointerLabel.Text = $"Y: {_latestY:0}  (virtual 0–1080)";
+    }
+
+    // ------------------------------------------------------------------
+    //  Simulation loop
+    // ------------------------------------------------------------------
 
     private void OnStartClicked(object sender, EventArgs e)
     {
         if (_timer is not null) return;
 
         _timer = Dispatcher.CreateTimer();
-        _timer.Interval = TimeSpan.FromMilliseconds(16); // host tick rate (not sim rate)
-        _timer.Tick += (_, __) => StepOnce();
+        _timer.Interval = TimeSpan.FromMilliseconds(16);
+        _timer.Tick += (_, _) => StepOnce();
         _timer.Start();
 
         StartButton.IsEnabled = false;
         StopButton.IsEnabled = true;
+        StatusLabel.Text = "Running";
+        StatusLabel.TextColor = Color.FromArgb("#4CAF50");
 
-        AppendLog($"> Loop started.");
+        AppendLog("> Loop started.");
     }
 
     private void OnStopClicked(object sender, EventArgs e)
@@ -81,8 +139,10 @@ public partial class MainPage : ContentPage
 
         StartButton.IsEnabled = true;
         StopButton.IsEnabled = false;
+        StatusLabel.Text = "Stopped";
+        StatusLabel.TextColor = Color.FromArgb("#888888");
 
-        AppendLog($"> Loop stopped.");
+        AppendLog("> Loop stopped.");
     }
 
     private void OnClearClicked(object sender, EventArgs e)
@@ -92,21 +152,40 @@ public partial class MainPage : ContentPage
 
     private void StepOnce()
     {
-        // Minimal pointer sample (no gameplay yet). In a real host you'd wire pointer events.
-        var input = new PointerInput(0f, 0f, false, false, _stopwatch.ElapsedTicks);
-
+        var input = SamplePointer();
         var nowTicks = _stopwatch.ElapsedTicks;
         var result = _loop.Step(input, nowTicks, Stopwatch.Frequency);
 
-        // Drive deterministic audio from deterministic events
         if (result.Events.Count > 0)
             _audio.Process(result.Events, result.Tick, sessionSeed: 0xC0FFEEu);
 
-        // Keep log light
         _frame++;
-        if (_frame % 30 == 0)
+        if (_frame % 60 == 0)
         {
-            AppendLog($"> tick={result.Tick} events={result.Events.Count} alpha={result.Alpha:0.000}");
+            AppendLog($"> tick={result.Tick} Y={_latestY:0} events={result.Events.Count}");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    //  Asset verification
+    // ------------------------------------------------------------------
+
+    private async Task VerifyAssetsAsync()
+    {
+        try
+        {
+            var missing = await AssetVerifier.VerifyRequiredAudioAsync(new MauiAssetOpener(), CancellationToken.None);
+            if (missing.Count == 0)
+                AppendLog("> Assets OK.");
+            else
+            {
+                AppendLog($"> MISSING {missing.Count} assets:");
+                foreach (var m in missing) AppendLog($"  - {m}");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"> Asset error: {ex.GetType().Name}: {ex.Message}");
         }
     }
 
