@@ -43,7 +43,7 @@ namespace CursorAssist.Engine.Transforms;
 ///
 /// No target knowledge required. Universal base-layer filter.
 /// </summary>
-public sealed class SmoothingTransform : IInputTransform
+public sealed class SmoothingTransform : IStatefulTransform
 {
     public string TransformId => "assist.smoothing.velocity-adaptive";
 

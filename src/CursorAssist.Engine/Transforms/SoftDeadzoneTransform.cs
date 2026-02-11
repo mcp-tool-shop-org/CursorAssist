@@ -25,7 +25,7 @@ namespace CursorAssist.Engine.Transforms;
 /// Parameters from AssistiveConfig:
 ///   DeadzoneRadiusVpx — compression radius (0 = disabled)
 /// </summary>
-public sealed class SoftDeadzoneTransform : IInputTransform
+public sealed class SoftDeadzoneTransform : IStatefulTransform
 {
     public string TransformId => "assist.deadzone.soft-quadratic";
 

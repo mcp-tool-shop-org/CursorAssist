@@ -13,7 +13,7 @@ namespace CursorAssist.Engine.Transforms;
 ///   - MagnetismHysteresisVpx (disengage margin beyond radius)
 ///   - SnapRadiusVpx (below this, snap to center)
 /// </summary>
-public sealed class TargetMagnetismTransform : IInputTransform
+public sealed class TargetMagnetismTransform : IStatefulTransform
 {
     public string TransformId => "assist.target-magnetism";
 

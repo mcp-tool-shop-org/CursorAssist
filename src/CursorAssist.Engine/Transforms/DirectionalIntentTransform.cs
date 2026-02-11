@@ -29,7 +29,7 @@ namespace CursorAssist.Engine.Transforms;
 ///   IntentBoostStrength — master strength [0, 1]. 0 = disabled.
 ///   IntentCoherenceThreshold — cosine similarity threshold (default 0.8).
 /// </summary>
-public sealed class DirectionalIntentTransform : IInputTransform
+public sealed class DirectionalIntentTransform : IStatefulTransform
 {
     public string TransformId => "assist.intent.directional";
 
