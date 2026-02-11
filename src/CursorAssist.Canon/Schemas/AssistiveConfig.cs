@@ -25,7 +25,17 @@ public sealed record AssistiveConfig
     [JsonPropertyName("mappingPolicyVersion")]
     public int MappingPolicyVersion { get; init; } = 1;
 
-    // ── Smoothing (velocity-adaptive EMA) ────────────────────
+    // ── Smoothing (velocity-adaptive 1st-order IIR low-pass) ──
+    //
+    // EMA is a 1st-order IIR filter with -3dB cutoff:
+    //   fc ≈ α·Fs / (2π)   (Fs = 60 Hz engine tick rate)
+    //
+    // Target suppression band: 4–12 Hz (physiological/essential tremor)
+    // Preserve: <3 Hz intentional motion, >12 Hz flick transitions
+    //
+    // α ≈ 0.25 → fc ≈ 2.4 Hz (strong tremor suppression)
+    // α ≈ 0.63 → fc ≈ 6 Hz   (moderate)
+    // α ≈ 0.90 → fc ≈ 8.6 Hz (minimal smoothing, near pass-through)
 
     /// <summary>
     /// Master smoothing strength [0, 1]. 0 = disabled, 1 = maximum.
@@ -36,27 +46,36 @@ public sealed record AssistiveConfig
     public float SmoothingStrength { get; init; }
 
     /// <summary>
-    /// Minimum alpha (strongest smoothing) applied at zero velocity.
-    /// Lower values = heavier tremor suppression when cursor is nearly still.
-    /// Range [0.01, 1]. Default 0.08. Only used when SmoothingStrength > 0.
+    /// Minimum alpha (strongest smoothing) applied at or below VelocityLow.
+    /// Maps to fc ≈ α·60/(2π). Default 0.25 → fc ≈ 2.4 Hz.
+    /// Range [0.05, 1]. Avoid below 0.05 — feels "underwater" (fc &lt; 0.5 Hz).
     /// </summary>
     [JsonPropertyName("smoothingMinAlpha")]
-    public float SmoothingMinAlpha { get; init; } = 0.08f;
+    public float SmoothingMinAlpha { get; init; } = 0.25f;
 
     /// <summary>
-    /// Maximum alpha (weakest smoothing) applied at or above VelocityMax.
-    /// Higher values = more responsive during intentional fast motion.
-    /// Range [0.01, 1]. Default 0.9. Only used when SmoothingStrength > 0.
+    /// Maximum alpha (weakest smoothing) applied at or above VelocityHigh.
+    /// Default 0.9 → fc ≈ 8.6 Hz (passes nearly everything).
+    /// Range [0.05, 1].
     /// </summary>
     [JsonPropertyName("smoothingMaxAlpha")]
     public float SmoothingMaxAlpha { get; init; } = 0.9f;
 
     /// <summary>
-    /// Velocity magnitude (vpx/tick) at which alpha reaches MaxAlpha.
-    /// Derived from MotorProfile speed distribution. Default 8.0.
+    /// Velocity magnitude (vpx/tick) below which alpha stays at MinAlpha.
+    /// Motion below this threshold is treated as tremor/micro-jitter.
+    /// Default 0.5 vpx/tick (≈ 30 px/s at 60 Hz).
     /// </summary>
-    [JsonPropertyName("smoothingVelocityMax")]
-    public float SmoothingVelocityMax { get; init; } = 8f;
+    [JsonPropertyName("smoothingVelocityLow")]
+    public float SmoothingVelocityLow { get; init; } = 0.5f;
+
+    /// <summary>
+    /// Velocity magnitude (vpx/tick) at or above which alpha reaches MaxAlpha.
+    /// Motion above this is treated as intentional — minimal filtering.
+    /// Default 8.0 vpx/tick (≈ 480 px/s at 60 Hz).
+    /// </summary>
+    [JsonPropertyName("smoothingVelocityHigh")]
+    public float SmoothingVelocityHigh { get; init; } = 8f;
 
     /// <summary>Prediction horizon in seconds. 0 = no prediction.</summary>
     [JsonPropertyName("predictionHorizonS")]

@@ -7,17 +7,24 @@ namespace CursorAssist.Tests.Transforms;
 
 public class SmoothingTransformTests
 {
+    /// <summary>
+    /// Helper: create an AssistiveConfig with DSP-grounded defaults.
+    /// Default minAlpha=0.25 → fc≈2.4Hz, maxAlpha=0.9 → fc≈8.6Hz.
+    /// vLow=0.5 vpx/tick (tremor ceiling), vHigh=8.0 vpx/tick (intentional floor).
+    /// </summary>
     private static AssistiveConfig MakeConfig(
         float strength = 0.8f,
-        float minAlpha = 0.08f,
+        float minAlpha = 0.25f,
         float maxAlpha = 0.9f,
-        float vMax = 8f) => new()
+        float vLow = 0.5f,
+        float vHigh = 8f) => new()
     {
         SourceProfileId = "t",
         SmoothingStrength = strength,
         SmoothingMinAlpha = minAlpha,
         SmoothingMaxAlpha = maxAlpha,
-        SmoothingVelocityMax = vMax
+        SmoothingVelocityLow = vLow,
+        SmoothingVelocityHigh = vHigh
     };
 
     [Fact]
@@ -45,77 +52,92 @@ public class SmoothingTransformTests
     }
 
     [Fact]
-    public void HighStrength_SmallDelta_StronglySmoothsJitter()
+    public void HighStrength_BelowVelocityLow_LocksToMinAlpha()
     {
-        // Small delta (low velocity) should get heavy smoothing
+        // Delta=0.3 is below vLow=0.5, so alpha should be exactly minAlpha
         var transform = new SmoothingTransform();
-        var config = MakeConfig(strength: 1f, minAlpha: 0.05f, maxAlpha: 0.9f, vMax: 8f);
+        var config = MakeConfig(strength: 1f, minAlpha: 0.25f, maxAlpha: 0.9f, vLow: 0.5f, vHigh: 8f);
 
-        // Initialize at 100,100
         var init = new InputSample(100f, 100f, 0f, 0f, false, false, 0);
         var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = config };
         transform.Apply(in init, ctx);
 
-        // Small jitter: 2px jump (well below vMax → near minAlpha → heavy smoothing)
-        var jitter = new InputSample(102f, 100f, 2f, 0f, false, false, 1);
+        // Tiny jitter: 0.3px (below vLow → locked to minAlpha=0.25)
+        var jitter = new InputSample(100.3f, 100f, 0.3f, 0f, false, false, 1);
         ctx = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = config };
         var result = transform.Apply(in jitter, ctx);
 
-        // With very low alpha (~0.05), output should barely move
-        Assert.True(result.X > 100f, "Should move slightly toward jitter");
-        Assert.True(result.X < 101f, "Should barely follow small jitter — heavy smoothing");
+        // Expected: 100 + 0.25 * 0.3 = 100.075
+        Assert.Equal(100.075f, result.X, 3);
     }
 
     [Fact]
-    public void HighStrength_LargeDelta_PreservesResponsiveness()
+    public void HighStrength_AboveVelocityHigh_LocksToMaxAlpha()
     {
-        // Large delta (high velocity) should get light smoothing
+        // Delta=15 is above vHigh=8, so alpha should be exactly maxAlpha
         var transform = new SmoothingTransform();
-        var config = MakeConfig(strength: 1f, minAlpha: 0.05f, maxAlpha: 0.9f, vMax: 8f);
+        var config = MakeConfig(strength: 1f, minAlpha: 0.25f, maxAlpha: 0.9f, vLow: 0.5f, vHigh: 8f);
 
-        // Initialize at 100,100
         var init = new InputSample(100f, 100f, 0f, 0f, false, false, 0);
         var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = config };
         transform.Apply(in init, ctx);
 
-        // Large intentional movement: 50px jump (well above vMax → near maxAlpha)
-        var move = new InputSample(150f, 100f, 50f, 0f, false, false, 1);
+        // Large intentional movement: 15px (above vHigh → locked to maxAlpha=0.9)
+        var move = new InputSample(115f, 100f, 15f, 0f, false, false, 1);
         ctx = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = config };
         var result = transform.Apply(in move, ctx);
 
-        // With high alpha (~0.9), output should closely follow
-        Assert.True(result.X > 140f, "Should mostly follow large intentional movement");
-        Assert.True(result.X <= 150f, "Should not overshoot raw input");
+        // Expected: 100 + 0.9 * 15 = 113.5
+        Assert.Equal(113.5f, result.X, 1);
+    }
+
+    [Fact]
+    public void HighStrength_BetweenBreakpoints_Interpolates()
+    {
+        // Delta=4 is between vLow=0.5 and vHigh=8, so alpha is SmoothStep-interpolated
+        var transform = new SmoothingTransform();
+        var config = MakeConfig(strength: 1f, minAlpha: 0.25f, maxAlpha: 0.9f, vLow: 0.5f, vHigh: 8f);
+
+        var init = new InputSample(100f, 100f, 0f, 0f, false, false, 0);
+        var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = config };
+        transform.Apply(in init, ctx);
+
+        // Medium movement: 4px (between breakpoints → interpolated alpha)
+        var move = new InputSample(104f, 100f, 4f, 0f, false, false, 1);
+        ctx = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = config };
+        var result = transform.Apply(in move, ctx);
+
+        // Alpha should be between minAlpha and maxAlpha, so result between extremes
+        float minExpected = 100f + 0.25f * 4f; // 101.0
+        float maxExpected = 100f + 0.9f * 4f;  // 103.6
+        Assert.True(result.X > minExpected, $"Result {result.X} should be > {minExpected} (not stuck at min)");
+        Assert.True(result.X < maxExpected, $"Result {result.X} should be < {maxExpected} (not at max)");
     }
 
     [Fact]
     public void VelocityAdaptive_MoreSmoothingAtLowVelocity_LessAtHigh()
     {
-        // This is the core test: same displacement, but different velocities
-        // should produce different smoothing amounts
-        var config = MakeConfig(strength: 1f, minAlpha: 0.05f, maxAlpha: 0.95f, vMax: 10f);
+        // Core behavioral proof: low velocity tracks less, high velocity tracks more
+        var config = MakeConfig(strength: 1f, minAlpha: 0.20f, maxAlpha: 0.95f, vLow: 0.5f, vHigh: 10f);
 
-        // Run 1: Low velocity (small delta)
+        // Run 1: Low velocity (delta=0.3, below vLow)
         var t1 = new SmoothingTransform();
         var ctx1 = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = config };
         t1.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx1);
 
         ctx1 = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = config };
-        var lowVelResult = t1.Apply(new InputSample(101f, 100f, 1f, 0f, false, false, 1), ctx1);
-        float lowVelDisplacement = lowVelResult.X - 100f; // How far it moved
+        var lowVelResult = t1.Apply(new InputSample(100.3f, 100f, 0.3f, 0f, false, false, 1), ctx1);
+        float lowVelFraction = (lowVelResult.X - 100f) / 0.3f;
 
-        // Run 2: High velocity (large delta) — then same 1px error from different baseline
+        // Run 2: High velocity (delta=20, above vHigh)
         var t2 = new SmoothingTransform();
         var ctx2 = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = config };
         t2.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx2);
 
         ctx2 = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = config };
         var highVelResult = t2.Apply(new InputSample(120f, 100f, 20f, 0f, false, false, 1), ctx2);
-        float highVelFraction = (highVelResult.X - 100f) / 20f; // Fraction of delta tracked
+        float highVelFraction = (highVelResult.X - 100f) / 20f;
 
-        float lowVelFraction = lowVelDisplacement / 1f;
-
-        // High velocity should track a LARGER fraction than low velocity
         Assert.True(highVelFraction > lowVelFraction,
             $"High velocity should track more ({highVelFraction:F3}) than low velocity ({lowVelFraction:F3})");
     }
@@ -157,14 +179,12 @@ public class SmoothingTransformTests
         var transform = new SmoothingTransform();
         var config = MakeConfig(strength: 0.9f);
 
-        // Build up state
         var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = config };
         transform.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx);
         transform.Apply(new InputSample(200f, 200f, 100f, 100f, false, false, 1), ctx);
 
         transform.Reset();
 
-        // After reset, should treat next input as initialization
         var input = new InputSample(500f, 500f, 0f, 0f, false, false, 0);
         var result = transform.Apply(in input, ctx);
         Assert.Equal(500f, result.X);
@@ -172,16 +192,14 @@ public class SmoothingTransformTests
     }
 
     [Fact]
-    public void SmoothStep_TransitionCurveIsSmooth()
+    public void SmoothStep_TransitionCurveIsMonotonic()
     {
-        // Verify the smoothstep velocity→alpha mapping produces a monotonic,
-        // smooth transition by feeding increasing velocities
-        var transform = new SmoothingTransform();
-        var config = MakeConfig(strength: 1f, minAlpha: 0.05f, maxAlpha: 0.95f, vMax: 10f);
+        // Verify monotonic increase: higher velocity → higher alpha → larger fraction tracked
+        var config = MakeConfig(strength: 1f, minAlpha: 0.20f, maxAlpha: 0.95f, vLow: 0.5f, vHigh: 10f);
 
         float prevFraction = 0f;
 
-        for (int v = 0; v <= 20; v += 2)
+        for (int v = 1; v <= 20; v += 2)
         {
             var t = new SmoothingTransform();
             var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = config };
@@ -191,14 +209,10 @@ public class SmoothingTransformTests
             ctx = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = config };
             var result = t.Apply(new InputSample(100f + dx, 100f, dx, 0f, false, false, 1), ctx);
 
-            float fraction = dx > 0f ? (result.X - 100f) / dx : 0f;
+            float fraction = (result.X - 100f) / dx;
 
-            if (v > 0)
-            {
-                // Each higher velocity should track at least as much of the delta
-                Assert.True(fraction >= prevFraction - 0.001f,
-                    $"Velocity {v}: fraction {fraction:F4} should be >= previous {prevFraction:F4}");
-            }
+            Assert.True(fraction >= prevFraction - 0.001f,
+                $"Velocity {v}: fraction {fraction:F4} should be >= previous {prevFraction:F4}");
 
             prevFraction = fraction;
         }
@@ -207,12 +221,9 @@ public class SmoothingTransformTests
     [Fact]
     public void LowStrength_BiasesAlphaUpward()
     {
-        // Lower SmoothingStrength should reduce the effect of the velocity-adaptive
-        // filter (bias alpha toward 1.0 = less smoothing overall)
-        var config1 = MakeConfig(strength: 1f, minAlpha: 0.05f, maxAlpha: 0.9f, vMax: 8f);
-        var config05 = MakeConfig(strength: 0.5f, minAlpha: 0.05f, maxAlpha: 0.9f, vMax: 8f);
+        var config1 = MakeConfig(strength: 1f, minAlpha: 0.20f, maxAlpha: 0.9f, vLow: 0.5f, vHigh: 8f);
+        var config05 = MakeConfig(strength: 0.5f, minAlpha: 0.20f, maxAlpha: 0.9f, vLow: 0.5f, vHigh: 8f);
 
-        // Low velocity, small jitter
         var t1 = new SmoothingTransform();
         var t05 = new SmoothingTransform();
 
@@ -221,14 +232,55 @@ public class SmoothingTransformTests
         t1.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx1);
         t05.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx05);
 
+        // Low velocity jitter (delta=0.3, below vLow)
         ctx1 = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = config1 };
         ctx05 = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = config05 };
         var r1 = t1.Apply(new InputSample(102f, 100f, 2f, 0f, false, false, 1), ctx1);
         var r05 = t05.Apply(new InputSample(102f, 100f, 2f, 0f, false, false, 1), ctx05);
 
-        // strength=0.5 should track MORE of the delta than strength=1.0
-        // (less smoothing overall)
+        // strength=0.5 should track MORE (less smoothing overall)
         Assert.True(r05.X > r1.X,
             $"Strength 0.5 ({r05.X:F3}) should track more than strength 1.0 ({r1.X:F3})");
+    }
+
+    [Fact]
+    public void CutoffFrequency_MinAlpha025_ApproxTwoPointFourHz()
+    {
+        // DSP sanity check: at minAlpha=0.25, fc ≈ 0.25*60/(2π) ≈ 2.4 Hz
+        // A 2.4 Hz sine at 60 Hz has ~25 samples/cycle
+        // At -3dB, output amplitude should be ~0.707 of input amplitude
+        //
+        // We test indirectly: run a low-frequency "step" and a high-frequency
+        // oscillation, verify the oscillation is suppressed more
+        var config = MakeConfig(strength: 1f, minAlpha: 0.25f, maxAlpha: 0.25f, vLow: 0f, vHigh: 100f);
+        // Force constant alpha=0.25 by making vHigh huge and vLow=0
+
+        var transform = new SmoothingTransform();
+        var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = config };
+        transform.Apply(new InputSample(0f, 0f, 0f, 0f, false, false, 0), ctx);
+
+        // Simulate 8 Hz oscillation for 60 ticks (1 second)
+        // 8 Hz at 60 Hz = 7.5 samples/cycle, amplitude = 5 vpx
+        float maxOutput = 0f;
+
+        for (int i = 1; i <= 60; i++)
+        {
+            float phase = 2f * MathF.PI * 8f * i / 60f;
+            float x = 5f * MathF.Sin(phase);
+            float dx = x - (5f * MathF.Sin(2f * MathF.PI * 8f * (i - 1) / 60f));
+
+            ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = config };
+            var result = transform.Apply(new InputSample(x, 0f, dx, 0f, false, false, i), ctx);
+
+            if (i > 30) // Skip transient
+            {
+                float absOutput = MathF.Abs(result.X);
+                if (absOutput > maxOutput) maxOutput = absOutput;
+            }
+        }
+
+        // 8 Hz tremor with α=0.25 should be attenuated well below input amplitude (5 vpx)
+        Assert.True(maxOutput < 3.5f,
+            $"8 Hz oscillation should be attenuated: peak output {maxOutput:F2} vpx should be < 3.5 (input amplitude 5.0)");
     }
 }

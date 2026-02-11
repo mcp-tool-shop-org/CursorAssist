@@ -1,28 +1,33 @@
-using CursorAssist.Canon.Schemas;
 using CursorAssist.Engine.Core;
 
 namespace CursorAssist.Engine.Transforms;
 
 /// <summary>
-/// Velocity-adaptive EMA smoothing transform.
+/// Velocity-adaptive 1st-order IIR low-pass (EMA) smoothing transform.
 ///
-/// Core insight: tremor is high-frequency / low-amplitude oscillation near zero
-/// net velocity. Intentional movement is sustained, coherent, higher-velocity.
+/// DSP foundation:
+///   EMA is a 1st-order IIR filter: H(z) = α / (1 - (1-α)z⁻¹)
+///   Approximate -3dB cutoff: fc ≈ α·Fs / (2π)   where Fs = 60 Hz
 ///
-/// Strategy:
-///   alpha = f(|velocity|)
-///   Low velocity  → small alpha → strong smoothing (suppress tremor)
-///   High velocity → large alpha → minimal smoothing (preserve responsiveness)
+///   α ≈ 0.25 → fc ≈ 2.4 Hz (strong tremor suppression)
+///   α ≈ 0.63 → fc ≈ 6.0 Hz (moderate)
+///   α ≈ 0.90 → fc ≈ 8.6 Hz (near pass-through)
 ///
-/// The velocity-to-alpha mapping uses SmoothStep for a natural transition curve.
+/// Target band: suppress 4–12 Hz tremor, preserve &lt;3 Hz intentional motion.
+///
+/// Velocity-adaptive strategy (two-breakpoint):
+///   |v| ≤ vLow  → alpha = minAlpha (full tremor suppression)
+///   |v| ≥ vHigh → alpha = maxAlpha (near pass-through)
+///   vLow &lt; |v| &lt; vHigh → SmoothStep interpolation
 ///
 /// Parameters from AssistiveConfig:
-///   SmoothingStrength  — master control [0,1]; 0 = disabled
-///   SmoothingMinAlpha  — alpha at zero velocity (strongest smoothing)
-///   SmoothingMaxAlpha  — alpha at VelocityMax (weakest smoothing)
-///   SmoothingVelocityMax — velocity magnitude where alpha reaches MaxAlpha
+///   SmoothingStrength   — master control [0,1]; 0 = disabled
+///   SmoothingMinAlpha   — alpha at/below vLow  (default 0.25 → fc ≈ 2.4 Hz)
+///   SmoothingMaxAlpha   — alpha at/above vHigh (default 0.90 → fc ≈ 8.6 Hz)
+///   SmoothingVelocityLow  — tremor velocity ceiling (default 0.5 vpx/tick)
+///   SmoothingVelocityHigh — intentional motion floor (default 8.0 vpx/tick)
 ///
-/// No target knowledge required. This is the universal base-layer filter.
+/// No target knowledge required. Universal base-layer filter.
 /// </summary>
 public sealed class SmoothingTransform : IInputTransform
 {
@@ -60,17 +65,34 @@ public sealed class SmoothingTransform : IInputTransform
         // Read velocity-adaptive parameters (with safe defaults)
         float minAlpha = config!.SmoothingMinAlpha;
         float maxAlpha = config.SmoothingMaxAlpha;
-        float vMax = config.SmoothingVelocityMax;
+        float vLow = config.SmoothingVelocityLow;
+        float vHigh = config.SmoothingVelocityHigh;
 
         // Guard: ensure sane ranges
-        if (minAlpha <= 0f) minAlpha = 0.08f;
+        if (minAlpha < 0.05f) minAlpha = 0.25f;
         if (maxAlpha <= minAlpha) maxAlpha = MathF.Max(minAlpha + 0.01f, 0.9f);
-        if (vMax <= 0f) vMax = 8f;
+        if (vLow < 0f) vLow = 0.5f;
+        if (vHigh <= vLow) vHigh = MathF.Max(vLow + 1f, 8f);
 
-        // Velocity-adaptive alpha via SmoothStep
-        float t = Clamp01(velocity / vMax);
-        float smooth = t * t * (3f - 2f * t); // Hermite smoothstep
-        float baseAlpha = minAlpha + (maxAlpha - minAlpha) * smooth;
+        // Two-breakpoint velocity-adaptive alpha:
+        //   velocity ≤ vLow  → minAlpha (full tremor suppression)
+        //   velocity ≥ vHigh → maxAlpha (near pass-through)
+        //   between → SmoothStep interpolation
+        float baseAlpha;
+        if (velocity <= vLow)
+        {
+            baseAlpha = minAlpha;
+        }
+        else if (velocity >= vHigh)
+        {
+            baseAlpha = maxAlpha;
+        }
+        else
+        {
+            float t = (velocity - vLow) / (vHigh - vLow);
+            float smooth = t * t * (3f - 2f * t); // Hermite smoothstep
+            baseAlpha = minAlpha + (maxAlpha - minAlpha) * smooth;
+        }
 
         // Apply master strength: strength=1 uses full adaptive range,
         // strength<1 biases alpha upward toward 1 (less smoothing overall)
@@ -78,7 +100,7 @@ public sealed class SmoothingTransform : IInputTransform
         float alpha = 1f + strength * (baseAlpha - 1f);
 
         // Final clamp to prevent freeze or overshoot
-        alpha = MathF.Max(0.01f, MathF.Min(1f, alpha));
+        alpha = MathF.Max(0.05f, MathF.Min(1f, alpha));
 
         _smoothX += alpha * (input.X - _smoothX);
         _smoothY += alpha * (input.Y - _smoothY);
@@ -92,6 +114,4 @@ public sealed class SmoothingTransform : IInputTransform
         _smoothY = 0f;
         _initialized = false;
     }
-
-    private static float Clamp01(float v) => v < 0f ? 0f : v > 1f ? 1f : v;
 }

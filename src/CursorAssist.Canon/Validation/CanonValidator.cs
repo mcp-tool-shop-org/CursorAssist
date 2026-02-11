@@ -47,17 +47,23 @@ public static class CanonValidator
         if (config.SmoothingStrength is < 0f or > 1f)
             errors.Add($"SmoothingStrength must be [0, 1]; got {config.SmoothingStrength}.");
 
-        if (config.SmoothingMinAlpha is < 0.01f or > 1f)
-            errors.Add($"SmoothingMinAlpha must be [0.01, 1]; got {config.SmoothingMinAlpha}.");
+        if (config.SmoothingMinAlpha is < 0.05f or > 1f)
+            errors.Add($"SmoothingMinAlpha must be [0.05, 1]; got {config.SmoothingMinAlpha}. Below 0.05 → fc < 0.5 Hz (unusable).");
 
-        if (config.SmoothingMaxAlpha is < 0.01f or > 1f)
-            errors.Add($"SmoothingMaxAlpha must be [0.01, 1]; got {config.SmoothingMaxAlpha}.");
+        if (config.SmoothingMaxAlpha is < 0.05f or > 1f)
+            errors.Add($"SmoothingMaxAlpha must be [0.05, 1]; got {config.SmoothingMaxAlpha}.");
 
         if (config.SmoothingMinAlpha > config.SmoothingMaxAlpha)
             errors.Add($"SmoothingMinAlpha ({config.SmoothingMinAlpha}) must be <= SmoothingMaxAlpha ({config.SmoothingMaxAlpha}).");
 
-        if (config.SmoothingVelocityMax <= 0f)
-            errors.Add($"SmoothingVelocityMax must be > 0; got {config.SmoothingVelocityMax}.");
+        if (config.SmoothingVelocityLow < 0f)
+            errors.Add($"SmoothingVelocityLow must be >= 0; got {config.SmoothingVelocityLow}.");
+
+        if (config.SmoothingVelocityHigh <= 0f)
+            errors.Add($"SmoothingVelocityHigh must be > 0; got {config.SmoothingVelocityHigh}.");
+
+        if (config.SmoothingVelocityLow >= config.SmoothingVelocityHigh)
+            errors.Add($"SmoothingVelocityLow ({config.SmoothingVelocityLow}) must be < SmoothingVelocityHigh ({config.SmoothingVelocityHigh}).");
 
         if (config.MagnetismStrength is < 0f or > 1f)
             errors.Add($"MagnetismStrength must be [0, 1]; got {config.MagnetismStrength}.");
