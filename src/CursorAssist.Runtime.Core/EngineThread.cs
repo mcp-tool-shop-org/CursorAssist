@@ -108,6 +108,34 @@ public sealed class EngineThread : IDisposable
     }
 
     /// <summary>
+    /// Emergency stop: halt engine, drain all queues, reset pipeline and cursor.
+    /// Designed to be called from the kill switch event handler.
+    /// Safe to call from any thread.
+    /// </summary>
+    public void EmergencyStop()
+    {
+        Disable();
+
+        // Drain queues
+        while (_inputQueue.TryDequeue(out _)) { }
+        while (_injectionQueue.TryDequeue(out _)) { }
+
+        // Reset pipeline state
+        _engine.Reset();
+
+        // Reset cursor
+        _cursor.Reset(0f, 0f);
+
+        // Clear injection ring buffer
+        Array.Clear(_injectedRing);
+        _injectedRingIdx = 0;
+
+        // Clear config
+        _activeConfig = null;
+        _pendingConfig = null;
+    }
+
+    /// <summary>
     /// Atomic config swap. Takes effect at next frame boundary.
     /// </summary>
     public void UpdateConfig(AssistiveConfig config)
