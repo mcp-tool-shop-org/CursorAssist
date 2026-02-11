@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Engine depends on Canon for profile/config types. No platform deps. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\CursorAssist.Canon\CursorAssist.Canon.csproj" />
+  </ItemGroup>
+
+</Project>

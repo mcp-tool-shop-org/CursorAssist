@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>CursorAssist.Benchmark.Cli</RootNamespace>
+    <AssemblyName>cursorassist-bench</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CursorAssist.Engine\CursorAssist.Engine.csproj" />
+    <ProjectReference Include="..\CursorAssist.Canon\CursorAssist.Canon.csproj" />
+  </ItemGroup>
+
+</Project>

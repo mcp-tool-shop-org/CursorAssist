@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Canon is a leaf: versioned schemas + DTOs, no behavior, no dependencies. -->
+
+
+</Project>

@@ -1,0 +1,15 @@
+{
+  "$schema": "cursorassist.motor-profile",
+  "$version": 1,
+  "profileId": "demo-user",
+  "createdUtc": "2026-02-10T00:00:00Z",
+  "tremorFrequencyHz": 6.0,
+  "tremorAmplitudeVpx": 4.5,
+  "pathEfficiency": 0.72,
+  "overshootRate": 0.6,
+  "overshootMagnitudeVpx": 18.0,
+  "meanTimeToTargetS": 1.2,
+  "stdDevTimeToTargetS": 0.4,
+  "clickStabilityVpx": 5.0,
+  "sampleCount": 200
+}

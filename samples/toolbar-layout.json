@@ -1,0 +1,22 @@
+{
+  "layoutId": "toolbar-demo",
+  "width": 1920,
+  "height": 1080,
+  "targets": [
+    { "id": "btn-file", "centerX": 40, "centerY": 30, "width": 60, "height": 28, "group": "menubar" },
+    { "id": "btn-edit", "centerX": 110, "centerY": 30, "width": 60, "height": 28, "group": "menubar" },
+    { "id": "btn-view", "centerX": 180, "centerY": 30, "width": 60, "height": 28, "group": "menubar" },
+    { "id": "btn-help", "centerX": 250, "centerY": 30, "width": 60, "height": 28, "group": "menubar" },
+    { "id": "btn-new", "centerX": 40, "centerY": 70, "width": 32, "height": 32, "group": "toolbar" },
+    { "id": "btn-open", "centerX": 80, "centerY": 70, "width": 32, "height": 32, "group": "toolbar" },
+    { "id": "btn-save", "centerX": 120, "centerY": 70, "width": 32, "height": 32, "group": "toolbar" },
+    { "id": "btn-undo", "centerX": 180, "centerY": 70, "width": 32, "height": 32, "group": "toolbar" },
+    { "id": "btn-redo", "centerX": 220, "centerY": 70, "width": 32, "height": 32, "group": "toolbar" },
+    { "id": "btn-close", "centerX": 1890, "centerY": 15, "width": 46, "height": 28, "group": "titlebar" },
+    { "id": "btn-maximize", "centerX": 1844, "centerY": 15, "width": 46, "height": 28, "group": "titlebar" },
+    { "id": "btn-minimize", "centerX": 1798, "centerY": 15, "width": 46, "height": 28, "group": "titlebar" },
+    { "id": "btn-submit", "centerX": 960, "centerY": 600, "width": 120, "height": 40, "group": "content" },
+    { "id": "field-search", "centerX": 960, "centerY": 30, "width": 300, "height": 28, "group": "search" },
+    { "id": "btn-settings", "centerX": 1860, "centerY": 1050, "width": 40, "height": 40, "group": "status" }
+  ]
+}
