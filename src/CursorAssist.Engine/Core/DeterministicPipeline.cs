@@ -23,6 +23,7 @@ public sealed class DeterministicPipeline
     private double _accumulatorSeconds;
     private long _lastHostTicks;
     private ulong _deterministicHash;
+    private long _overrunCount;
 
     private readonly List<EngineEvent> _events = new(capacity: 32);
 
@@ -32,6 +33,7 @@ public sealed class DeterministicPipeline
 
     public long CurrentTick => _tick;
     public ulong DeterminismHash => _deterministicHash;
+    public long OverrunCount => _overrunCount;
 
     public DeterministicPipeline(
         TransformPipeline transforms,
@@ -54,6 +56,7 @@ public sealed class DeterministicPipeline
         _accumulatorSeconds = 0;
         _lastHostTicks = 0;
         _deterministicHash = FnvOffsetBasis;
+        _overrunCount = 0;
         _transforms.Reset();
         _metrics.Reset();
     }
@@ -111,6 +114,14 @@ public sealed class DeterministicPipeline
             _tick++;
             _accumulatorSeconds -= _fixedDtD;
             steps++;
+        }
+
+        // Discard excess accumulator to prevent catch-up burst after stalls.
+        // Keeps at most 1 tick of carryover (normal fractional-frame behavior).
+        if (_accumulatorSeconds > _fixedDtD)
+        {
+            _overrunCount++;
+            _accumulatorSeconds = _fixedDtD;
         }
 
         var alpha = (float)(_accumulatorSeconds / _fixedDtD);

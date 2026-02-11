@@ -41,6 +41,7 @@ public sealed class EngineThread : IDisposable
     private Thread? _thread;
     private volatile bool _running;
     private bool _disposed;
+    private long _overrunCount;
 
     // Injection tagging: ring buffer of last N injected deltas with timestamps.
     // The time window prevents stale entries from false-matching legitimate user deltas.
@@ -54,6 +55,7 @@ public sealed class EngineThread : IDisposable
     public ConcurrentQueue<AssistedDelta> InjectionQueue => _injectionQueue;
     public bool IsRunning => _running;
     public CursorState Cursor => _cursor;
+    public long OverrunCount => _overrunCount;
 
     public EngineThread(
         TransformPipeline pipeline,
@@ -273,6 +275,14 @@ public sealed class EngineThread : IDisposable
 
                 accumulator -= _fixedDtD;
                 steps++;
+            }
+
+            // Discard excess accumulator to prevent catch-up burst after stalls.
+            // Keeps at most 1 tick of carryover (normal fractional-frame behavior).
+            if (accumulator > _fixedDtD)
+            {
+                _overrunCount++;
+                accumulator = _fixedDtD;
             }
 
             // Sleep to avoid busy-waiting (aim for ~1ms resolution)
