@@ -125,4 +125,32 @@ internal static class TestStreamGenerator
         MagnetismHysteresisVpx = 12f,
         SnapRadiusVpx = 3f
     };
+
+    /// <summary>
+    /// Create a full-featured AssistiveConfig with all Phase 4 features active:
+    /// adaptive frequency, dual-pole, precision mode, intent hysteresis,
+    /// phase comp velocity saturation (implicit in transform), and all transforms.
+    /// Used by the risk matrix regression suite.
+    /// </summary>
+    public static AssistiveConfig MakeFullFeaturedConfig() => new()
+    {
+        SourceProfileId = "full-featured-test",
+        SmoothingStrength = 0.7f,
+        SmoothingMinAlpha = 0.25f,
+        SmoothingMaxAlpha = 0.90f,
+        SmoothingVelocityLow = 0.5f,
+        SmoothingVelocityHigh = 8f,
+        SmoothingAdaptiveFrequencyEnabled = true,
+        SmoothingDualPoleEnabled = true,
+        PrecisionModeEnabled = true,
+        DeadzoneRadiusVpx = 1.5f,
+        PhaseCompensationGainS = 0.008f,
+        IntentBoostStrength = 0.5f,
+        IntentCoherenceThreshold = 0.8f,
+        IntentDisengageThreshold = 0.65f,
+        MagnetismRadiusVpx = 80f,
+        MagnetismStrength = 0.4f,
+        MagnetismHysteresisVpx = 12f,
+        SnapRadiusVpx = 3f
+    };
 }
