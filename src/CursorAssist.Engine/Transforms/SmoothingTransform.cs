@@ -157,7 +157,7 @@ public sealed class SmoothingTransform : IStatefulTransform
 
         // ── Dual-pole (2nd-order EMA) — optional ──
         // Second pole cascaded on the first: stronger suppression at low velocity
-        bool dualPoleEnabled = config!.SmoothingDualPoleEnabled;
+        bool dualPoleEnabled = config!.SmoothingDualPoleEnabled || config!.PrecisionModeEnabled;
         if (dualPoleEnabled)
         {
             _smooth2X += alpha * (_smoothX - _smooth2X);

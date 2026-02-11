@@ -96,6 +96,17 @@ public sealed record AssistiveConfig
     [JsonPropertyName("smoothingDualPoleEnabled")]
     public bool SmoothingDualPoleEnabled { get; init; }
 
+    /// <summary>
+    /// User-selectable precision mode. When true, enables dual-pole (2nd-order EMA)
+    /// regardless of the mapper's SmoothingDualPoleEnabled setting.
+    /// This allows users with moderate tremor (2–4 vpx) to opt into −40 dB/decade
+    /// suppression without needing to edit JSON config files.
+    /// The mapper never auto-sets this; it is a user override only.
+    /// Default false.
+    /// </summary>
+    [JsonPropertyName("precisionModeEnabled")]
+    public bool PrecisionModeEnabled { get; init; }
+
     // ── Soft deadzone (magnitude-domain tremor suppression) ──
     //
     // Quadratic compression: r' = r² / (r + D)

@@ -621,6 +621,99 @@ public class SmoothingTransformTests
     }
 
     [Fact]
+    public void PrecisionMode_EnablesDualPole()
+    {
+        // PrecisionModeEnabled=true should activate dual-pole even when SmoothingDualPoleEnabled=false.
+        // Compare: single-pole (neither flag) vs precision mode (PrecisionModeEnabled only).
+        var configSingle = MakeConfig(strength: 1f, minAlpha: 0.25f, vLow: 0.5f, vHigh: 8f, dualPole: false);
+        var configPrecision = new AssistiveConfig
+        {
+            SourceProfileId = "t",
+            SmoothingStrength = 1f,
+            SmoothingMinAlpha = 0.25f,
+            SmoothingMaxAlpha = 0.9f,
+            SmoothingVelocityLow = 0.5f,
+            SmoothingVelocityHigh = 8f,
+            SmoothingDualPoleEnabled = false,
+            PrecisionModeEnabled = true
+        };
+
+        var tSingle = new SmoothingTransform();
+        var tPrecision = new SmoothingTransform();
+
+        // Initialize both
+        var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = configSingle };
+        tSingle.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx);
+        ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = configPrecision };
+        tPrecision.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx);
+
+        // Feed low-velocity jitter (below vLow → dual-pole should suppress more)
+        InputSample resultSingle = default, resultPrecision = default;
+        for (int i = 1; i <= 10; i++)
+        {
+            float x = 100f + i * 0.3f;
+            var input = new InputSample(x, 100f, 0.3f, 0f, false, false, i);
+
+            ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = configSingle };
+            resultSingle = tSingle.Apply(in input, ctx);
+
+            ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = configPrecision };
+            resultPrecision = tPrecision.Apply(in input, ctx);
+        }
+
+        // Precision mode should suppress more (dual-pole active via PrecisionModeEnabled)
+        float singleDisplacement = resultSingle.X - 100f;
+        float precisionDisplacement = resultPrecision.X - 100f;
+
+        Assert.True(precisionDisplacement < singleDisplacement,
+            $"Precision mode ({precisionDisplacement:F4}) should suppress more than single-pole ({singleDisplacement:F4})");
+    }
+
+    [Fact]
+    public void BothDualPoleAndPrecision_NoDuplication()
+    {
+        // When both SmoothingDualPoleEnabled and PrecisionModeEnabled are true,
+        // output should be identical to just SmoothingDualPoleEnabled=true.
+        // The OR gate should not cause double-filtering.
+        var configDualOnly = MakeConfig(strength: 1f, minAlpha: 0.25f, vLow: 0.5f, vHigh: 8f, dualPole: true);
+        var configBoth = new AssistiveConfig
+        {
+            SourceProfileId = "t",
+            SmoothingStrength = 1f,
+            SmoothingMinAlpha = 0.25f,
+            SmoothingMaxAlpha = 0.9f,
+            SmoothingVelocityLow = 0.5f,
+            SmoothingVelocityHigh = 8f,
+            SmoothingDualPoleEnabled = true,
+            PrecisionModeEnabled = true
+        };
+
+        var tDual = new SmoothingTransform();
+        var tBoth = new SmoothingTransform();
+
+        var samples = new[]
+        {
+            new InputSample(100f, 100f, 0f, 0f, false, false, 0),
+            new InputSample(100.3f, 100f, 0.3f, 0f, false, false, 1),
+            new InputSample(100.6f, 100f, 0.3f, 0f, false, false, 2),
+            new InputSample(105f, 100f, 4.4f, 0f, false, false, 3),
+            new InputSample(120f, 100f, 15f, 0f, false, false, 4),
+        };
+
+        for (int i = 0; i < samples.Length; i++)
+        {
+            var ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = configDualOnly };
+            var rDual = tDual.Apply(in samples[i], ctx);
+
+            ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = configBoth };
+            var rBoth = tBoth.Apply(in samples[i], ctx);
+
+            Assert.Equal(rDual.X, rBoth.X);
+            Assert.Equal(rDual.Y, rBoth.Y);
+        }
+    }
+
+    [Fact]
     public void DualPoleEnabled_Deterministic()
     {
         var config = MakeConfig(strength: 0.8f, dualPole: true);

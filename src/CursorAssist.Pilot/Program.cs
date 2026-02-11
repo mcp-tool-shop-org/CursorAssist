@@ -22,6 +22,7 @@ namespace CursorAssist.Pilot;
 ///   cursorassist-pilot [options]
 ///     --config &lt;assist.json&gt;    Load AssistiveConfig from file
 ///     --profile &lt;motor.json&gt;    Load MotorProfile, derive config via mapper
+///     --precision                  Enable dual-pole precision mode
 ///     --trace                     Enable tick-level trace logging
 ///     --session-dir &lt;path&gt;       Output directory (default: ./sessions)
 ///     --export-config &lt;path&gt;     Export active config to JSON file and exit
@@ -61,6 +62,7 @@ public static partial class Program
         string? exportPath = GetArg(args, "--export-config");
         string sessionDir = GetArg(args, "--session-dir") ?? "./sessions";
         bool traceEnabled = HasFlag(args, "--trace");
+        bool precisionMode = HasFlag(args, "--precision");
 
         // ── Resolve config ────────────────────────────────────────
         AssistiveConfig? config = null;
@@ -109,6 +111,10 @@ public static partial class Program
             PrintUsage();
             return 1;
         }
+
+        // ── Apply precision mode override ──────────────────────────
+        if (precisionMode)
+            config = config with { PrecisionModeEnabled = true };
 
         // ── Export config and exit ────────────────────────────────
         if (exportPath is not null)
@@ -195,6 +201,8 @@ public static partial class Program
             $"Deadzone:     {config.DeadzoneRadiusVpx:F2} vpx"));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Phase comp:   {config.PhaseCompensationGainS * 1000f:F1} ms"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"Precision:    {(config.PrecisionModeEnabled ? "enabled" : "disabled")}"));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Trace:        {(traceEnabled ? "enabled" : "disabled")}"));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
@@ -300,6 +308,7 @@ public static partial class Program
         Console.WriteLine("  --config <assist.json>    Load AssistiveConfig from file");
         Console.WriteLine("  --profile <motor.json>    Load MotorProfile, derive config via mapper");
         Console.WriteLine("  --safe-default <level>    Use built-in safe default (minimal|moderate)");
+        Console.WriteLine("  --precision               Enable dual-pole precision mode (−40 dB/decade)");
         Console.WriteLine("  --trace                   Enable tick-level trace logging");
         Console.WriteLine("  --session-dir <path>      Output directory (default: ./sessions)");
         Console.WriteLine("  --export-config <path>    Export active config to JSON file and exit");
