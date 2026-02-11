@@ -16,8 +16,18 @@ public static class ProfileToConfigMapper
     /// </summary>
     public static AssistiveConfig Map(MotorProfile profile)
     {
-        // Smoothing: higher tremor → more smoothing
+        // Smoothing master strength: higher tremor → more smoothing
         float smoothing = Clamp01(profile.TremorAmplitudeVpx / 10f);
+
+        // Velocity-adaptive EMA parameters:
+        // MinAlpha: lower for severe tremor (stronger suppression at rest)
+        float minAlpha = MathF.Max(0.03f, 0.15f - profile.TremorAmplitudeVpx * 0.012f);
+
+        // MaxAlpha: high to preserve responsiveness; slightly lower for poor path efficiency
+        float maxAlpha = MathF.Min(0.95f, 0.90f + profile.PathEfficiency * 0.05f);
+
+        // VelocityMax: lower threshold for higher tremor (tremor detected sooner)
+        float vMax = MathF.Max(3f, 8f - profile.TremorAmplitudeVpx * 0.3f);
 
         // Prediction: more overshoot → less prediction (avoid amplifying)
         float prediction = Clamp01(0.05f - profile.OvershootRate * 0.01f);
@@ -45,6 +55,9 @@ public static class ProfileToConfigMapper
             SourceProfileId = profile.ProfileId,
             MappingPolicyVersion = PolicyVersion,
             SmoothingStrength = smoothing,
+            SmoothingMinAlpha = minAlpha,
+            SmoothingMaxAlpha = maxAlpha,
+            SmoothingVelocityMax = vMax,
             PredictionHorizonS = prediction,
             MagnetismRadiusVpx = magnetismRadius,
             MagnetismStrength = magnetismStrength,

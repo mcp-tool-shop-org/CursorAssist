@@ -14,6 +14,9 @@ public class ProfileToConfigMapperTests
         var c2 = ProfileToConfigMapper.Map(profile);
 
         Assert.Equal(c1.SmoothingStrength, c2.SmoothingStrength);
+        Assert.Equal(c1.SmoothingMinAlpha, c2.SmoothingMinAlpha);
+        Assert.Equal(c1.SmoothingMaxAlpha, c2.SmoothingMaxAlpha);
+        Assert.Equal(c1.SmoothingVelocityMax, c2.SmoothingVelocityMax);
         Assert.Equal(c1.MagnetismRadiusVpx, c2.MagnetismRadiusVpx);
         Assert.Equal(c1.MagnetismStrength, c2.MagnetismStrength);
         Assert.Equal(c1.EdgeResistance, c2.EdgeResistance);
@@ -62,10 +65,36 @@ public class ProfileToConfigMapperTests
     {
         var config = ProfileToConfigMapper.Map(MakeProfile());
         Assert.True(config.SmoothingStrength >= 0f && config.SmoothingStrength <= 1f);
+        Assert.True(config.SmoothingMinAlpha >= 0.01f && config.SmoothingMinAlpha <= 1f);
+        Assert.True(config.SmoothingMaxAlpha >= 0.01f && config.SmoothingMaxAlpha <= 1f);
+        Assert.True(config.SmoothingMinAlpha <= config.SmoothingMaxAlpha);
+        Assert.True(config.SmoothingVelocityMax > 0f);
         Assert.True(config.MagnetismStrength >= 0f && config.MagnetismStrength <= 1f);
         Assert.True(config.EdgeResistance >= 0f && config.EdgeResistance <= 1f);
         Assert.True(config.MagnetismRadiusVpx >= 0f);
         Assert.True(config.MagnetismHysteresisVpx >= 0f);
+    }
+
+    [Fact]
+    public void HighTremor_LowersMinAlpha()
+    {
+        // Higher tremor → lower MinAlpha (stronger suppression at rest)
+        var low = ProfileToConfigMapper.Map(MakeProfile(tremor: 1f));
+        var high = ProfileToConfigMapper.Map(MakeProfile(tremor: 8f));
+
+        Assert.True(high.SmoothingMinAlpha < low.SmoothingMinAlpha,
+            $"High tremor minAlpha ({high.SmoothingMinAlpha}) should be < low tremor ({low.SmoothingMinAlpha})");
+    }
+
+    [Fact]
+    public void HighTremor_LowersVelocityMax()
+    {
+        // Higher tremor → lower vMax (tremor threshold kicks in sooner)
+        var low = ProfileToConfigMapper.Map(MakeProfile(tremor: 1f));
+        var high = ProfileToConfigMapper.Map(MakeProfile(tremor: 8f));
+
+        Assert.True(high.SmoothingVelocityMax < low.SmoothingVelocityMax,
+            $"High tremor vMax ({high.SmoothingVelocityMax}) should be < low tremor ({low.SmoothingVelocityMax})");
     }
 
     [Fact]

@@ -25,11 +25,38 @@ public sealed record AssistiveConfig
     [JsonPropertyName("mappingPolicyVersion")]
     public int MappingPolicyVersion { get; init; } = 1;
 
-    // ── Smoothing ───────────────────────────────────────────
+    // ── Smoothing (velocity-adaptive EMA) ────────────────────
 
-    /// <summary>Low-pass smoothing strength [0, 1]. 0 = no smoothing, 1 = maximum.</summary>
+    /// <summary>
+    /// Master smoothing strength [0, 1]. 0 = disabled, 1 = maximum.
+    /// Controls the overall intensity of velocity-adaptive EMA.
+    /// When > 0, the filter uses MinAlpha at low velocity and MaxAlpha at high velocity.
+    /// </summary>
     [JsonPropertyName("smoothingStrength")]
     public float SmoothingStrength { get; init; }
+
+    /// <summary>
+    /// Minimum alpha (strongest smoothing) applied at zero velocity.
+    /// Lower values = heavier tremor suppression when cursor is nearly still.
+    /// Range [0.01, 1]. Default 0.08. Only used when SmoothingStrength > 0.
+    /// </summary>
+    [JsonPropertyName("smoothingMinAlpha")]
+    public float SmoothingMinAlpha { get; init; } = 0.08f;
+
+    /// <summary>
+    /// Maximum alpha (weakest smoothing) applied at or above VelocityMax.
+    /// Higher values = more responsive during intentional fast motion.
+    /// Range [0.01, 1]. Default 0.9. Only used when SmoothingStrength > 0.
+    /// </summary>
+    [JsonPropertyName("smoothingMaxAlpha")]
+    public float SmoothingMaxAlpha { get; init; } = 0.9f;
+
+    /// <summary>
+    /// Velocity magnitude (vpx/tick) at which alpha reaches MaxAlpha.
+    /// Derived from MotorProfile speed distribution. Default 8.0.
+    /// </summary>
+    [JsonPropertyName("smoothingVelocityMax")]
+    public float SmoothingVelocityMax { get; init; } = 8f;
 
     /// <summary>Prediction horizon in seconds. 0 = no prediction.</summary>
     [JsonPropertyName("predictionHorizonS")]

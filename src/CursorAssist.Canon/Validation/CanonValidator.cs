@@ -47,6 +47,18 @@ public static class CanonValidator
         if (config.SmoothingStrength is < 0f or > 1f)
             errors.Add($"SmoothingStrength must be [0, 1]; got {config.SmoothingStrength}.");
 
+        if (config.SmoothingMinAlpha is < 0.01f or > 1f)
+            errors.Add($"SmoothingMinAlpha must be [0.01, 1]; got {config.SmoothingMinAlpha}.");
+
+        if (config.SmoothingMaxAlpha is < 0.01f or > 1f)
+            errors.Add($"SmoothingMaxAlpha must be [0.01, 1]; got {config.SmoothingMaxAlpha}.");
+
+        if (config.SmoothingMinAlpha > config.SmoothingMaxAlpha)
+            errors.Add($"SmoothingMinAlpha ({config.SmoothingMinAlpha}) must be <= SmoothingMaxAlpha ({config.SmoothingMaxAlpha}).");
+
+        if (config.SmoothingVelocityMax <= 0f)
+            errors.Add($"SmoothingVelocityMax must be > 0; got {config.SmoothingVelocityMax}.");
+
         if (config.MagnetismStrength is < 0f or > 1f)
             errors.Add($"MagnetismStrength must be [0, 1]; got {config.MagnetismStrength}.");
 
