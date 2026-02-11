@@ -21,6 +21,7 @@
     <ProjectReference Include="..\MouseTrainer.Domain\MouseTrainer.Domain.csproj" />
     <ProjectReference Include="..\MouseTrainer.Simulation\MouseTrainer.Simulation.csproj" />
     <ProjectReference Include="..\MouseTrainer.Audio\MouseTrainer.Audio.csproj" />
+    <ProjectReference Include="..\CursorAssist.Trace\CursorAssist.Trace.csproj" />
   </ItemGroup>
 
   <ItemGroup>

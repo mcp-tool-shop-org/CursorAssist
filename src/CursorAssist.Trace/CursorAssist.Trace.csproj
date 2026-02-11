@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Trace format is a leaf: zero dependencies.
+       Both MouseTrainer and CursorAssist can reference this
+       without pulling in each other's types. -->
+
+</Project>

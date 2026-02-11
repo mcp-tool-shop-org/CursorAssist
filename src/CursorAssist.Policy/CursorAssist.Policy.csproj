@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Policy depends only on Canon. Contains versioned mapping rules. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\CursorAssist.Canon\CursorAssist.Canon.csproj" />
+  </ItemGroup>
+
+</Project>

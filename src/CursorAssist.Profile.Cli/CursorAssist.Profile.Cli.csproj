@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>CursorAssist.Profile.Cli</RootNamespace>
+    <AssemblyName>cursorassist-profile</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CursorAssist.Engine\CursorAssist.Engine.csproj" />
+    <ProjectReference Include="..\CursorAssist.Policy\CursorAssist.Policy.csproj" />
+    <ProjectReference Include="..\CursorAssist.Trace\CursorAssist.Trace.csproj" />
+  </ItemGroup>
+
+</Project>

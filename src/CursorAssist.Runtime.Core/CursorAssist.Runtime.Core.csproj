@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Runtime.Core: platform-agnostic engine thread, accumulator, config swap, queues.
+       No OS-specific code. Depends on Engine + Canon + Policy. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\CursorAssist.Engine\CursorAssist.Engine.csproj" />
+    <ProjectReference Include="..\CursorAssist.Policy\CursorAssist.Policy.csproj" />
+  </ItemGroup>
+
+</Project>

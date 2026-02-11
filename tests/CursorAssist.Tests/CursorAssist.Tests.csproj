@@ -18,6 +18,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CursorAssist.Canon\CursorAssist.Canon.csproj" />
     <ProjectReference Include="..\..\src\CursorAssist.Engine\CursorAssist.Engine.csproj" />
+    <ProjectReference Include="..\..\src\CursorAssist.Policy\CursorAssist.Policy.csproj" />
+    <ProjectReference Include="..\..\src\CursorAssist.Trace\CursorAssist.Trace.csproj" />
+    <ProjectReference Include="..\..\src\CursorAssist.Runtime.Core\CursorAssist.Runtime.Core.csproj" />
   </ItemGroup>
 
 </Project>

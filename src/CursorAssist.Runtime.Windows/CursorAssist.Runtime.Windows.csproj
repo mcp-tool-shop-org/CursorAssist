@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Windows-only: platform adapter for Raw Input + SendInput -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CursorAssist.Runtime.Core\CursorAssist.Runtime.Core.csproj" />
+  </ItemGroup>
+
+</Project>
