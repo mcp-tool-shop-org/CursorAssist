@@ -37,6 +37,7 @@ public sealed class DirectionalIntentTransform : IStatefulTransform
     private float _prevDy;
     private float _coherenceEma;
     private bool _initialized;
+    private bool _engaged;
 
     /// <summary>EMA beta for coherence smoothing: ~10-frame time constant at 60 Hz.
     /// β=0.15 → τ ≈ (1−0.15)/0.15 = 5.67 ticks ≈ 94ms.</summary>
@@ -91,10 +92,17 @@ public sealed class DirectionalIntentTransform : IStatefulTransform
         _prevDx = input.Dx;
         _prevDy = input.Dy;
 
-        // Boost: if coherence above threshold, add velocity-proportional offset
+        // Hysteresis: engage when coherenceEma >= threshold, disengage below disengageThreshold.
+        // The gap prevents flicker when coherence oscillates near the engage threshold.
         float threshold = context.Config?.IntentCoherenceThreshold ?? 0.8f;
+        float disengageThreshold = context.Config?.IntentDisengageThreshold ?? 0.65f;
 
-        if (_coherenceEma > threshold && vCurr > BoostVelocityMin)
+        if (!_engaged && _coherenceEma >= threshold)
+            _engaged = true;
+        else if (_engaged && _coherenceEma < disengageThreshold)
+            _engaged = false;
+
+        if (_engaged && vCurr > BoostVelocityMin)
         {
             // Normalized boost ramp: 0 at threshold, 1 at coherence=1
             float ramp = (_coherenceEma - threshold) / (1f - threshold);
@@ -119,5 +127,6 @@ public sealed class DirectionalIntentTransform : IStatefulTransform
         _prevDy = 0f;
         _coherenceEma = 0f;
         _initialized = false;
+        _engaged = false;
     }
 }

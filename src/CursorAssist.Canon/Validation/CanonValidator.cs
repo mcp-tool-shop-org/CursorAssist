@@ -38,8 +38,10 @@ public static class CanonValidator
     {
         var errors = new List<string>();
 
-        if (config.Version != Schemas.AssistiveConfig.SchemaVersion)
-            errors.Add($"Unsupported AssistiveConfig version {config.Version}; expected {Schemas.AssistiveConfig.SchemaVersion}.");
+        // Accept schema versions 1 and 2 for backward compatibility.
+        // v1 configs lack IntentDisengageThreshold (defaults to 0.65).
+        if (config.Version is < 1 or > Schemas.AssistiveConfig.SchemaVersion)
+            errors.Add($"Unsupported AssistiveConfig version {config.Version}; expected 1–{Schemas.AssistiveConfig.SchemaVersion}.");
 
         if (string.IsNullOrWhiteSpace(config.SourceProfileId))
             errors.Add("SourceProfileId is required.");
@@ -85,6 +87,12 @@ public static class CanonValidator
 
         if (config.IntentCoherenceThreshold is < 0.5f or > 1f)
             errors.Add($"IntentCoherenceThreshold must be [0.5, 1]; got {config.IntentCoherenceThreshold}.");
+
+        if (config.IntentDisengageThreshold is < 0.3f or > 1f)
+            errors.Add($"IntentDisengageThreshold must be [0.3, 1]; got {config.IntentDisengageThreshold}.");
+
+        if (config.IntentDisengageThreshold > config.IntentCoherenceThreshold)
+            errors.Add($"IntentDisengageThreshold ({config.IntentDisengageThreshold}) must be <= IntentCoherenceThreshold ({config.IntentCoherenceThreshold}).");
 
         return new ValidationResult(errors);
     }

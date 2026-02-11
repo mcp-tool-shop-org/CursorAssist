@@ -9,7 +9,7 @@ namespace CursorAssist.Canon.Schemas;
 public sealed record AssistiveConfig
 {
     public const string SchemaId = "cursorassist.assistive-config";
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     [JsonPropertyName("$schema")]
     public string Schema { get; init; } = SchemaId;
@@ -152,11 +152,21 @@ public sealed record AssistiveConfig
 
     /// <summary>
     /// Cosine similarity threshold for directional intent detection.
-    /// Below this threshold, no boost is applied.
-    /// Default 0.8. Range [0.5, 1.0].
+    /// Above this threshold, boost engages. Default 0.8. Range [0.5, 1.0].
     /// </summary>
     [JsonPropertyName("intentCoherenceThreshold")]
     public float IntentCoherenceThreshold { get; init; } = 0.8f;
+
+    /// <summary>
+    /// Cosine similarity threshold for intent boost disengagement.
+    /// Below this threshold, boost disengages. Must be ≤ IntentCoherenceThreshold.
+    /// The gap between engage and disengage thresholds creates a hysteresis band
+    /// that prevents flicker when coherence oscillates near the threshold.
+    /// Default 0.65 (gap of 0.15 ≈ 1 EMA time constant at β=0.15).
+    /// Range [0.3, 1.0].
+    /// </summary>
+    [JsonPropertyName("intentDisengageThreshold")]
+    public float IntentDisengageThreshold { get; init; } = 0.65f;
 
     /// <summary>Prediction horizon in seconds. 0 = no prediction.</summary>
     [JsonPropertyName("predictionHorizonS")]

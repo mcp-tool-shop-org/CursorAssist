@@ -37,5 +37,6 @@ public static class SafeDefaults
         PhaseCompensationGainS = 0.007f,
         IntentBoostStrength = 0.3f,
         IntentCoherenceThreshold = 0.85f,
+        IntentDisengageThreshold = 0.70f,
     };
 }

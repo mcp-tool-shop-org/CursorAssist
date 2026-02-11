@@ -135,6 +135,7 @@ public static class ProfileToConfigMapper
             ? Clamp01(profile.PathEfficiency - 0.4f)
             : 0f;
         float intentCoherenceThreshold = 0.8f;
+        float intentDisengageThreshold = MathF.Max(0.50f, intentCoherenceThreshold - 0.15f);
 
         return new AssistiveConfig
         {
@@ -151,6 +152,7 @@ public static class ProfileToConfigMapper
             PhaseCompensationGainS = phaseCompGainS,
             IntentBoostStrength = intentBoostStrength,
             IntentCoherenceThreshold = intentCoherenceThreshold,
+            IntentDisengageThreshold = intentDisengageThreshold,
             PredictionHorizonS = prediction,
             MagnetismRadiusVpx = magnetismRadius,
             MagnetismStrength = magnetismStrength,

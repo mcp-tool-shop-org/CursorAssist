@@ -8,11 +8,12 @@ namespace CursorAssist.Tests.Transforms;
 public class DirectionalIntentTransformTests
 {
     private static AssistiveConfig MakeConfig(
-        float strength = 0.5f, float threshold = 0.8f) => new()
+        float strength = 0.5f, float threshold = 0.8f, float disengage = 0.65f) => new()
     {
         SourceProfileId = "t",
         IntentBoostStrength = strength,
-        IntentCoherenceThreshold = threshold
+        IntentCoherenceThreshold = threshold,
+        IntentDisengageThreshold = disengage
     };
 
     private static TransformContext Ctx(AssistiveConfig? config = null) =>
@@ -185,8 +186,8 @@ public class DirectionalIntentTransformTests
         // (because ramp = (ema - threshold) / (1 - threshold) is larger)
         var t1 = new DirectionalIntentTransform();
         var t2 = new DirectionalIntentTransform();
-        var configLow = MakeConfig(strength: 0.5f, threshold: 0.6f);
-        var configHigh = MakeConfig(strength: 0.5f, threshold: 0.9f);
+        var configLow = MakeConfig(strength: 0.5f, threshold: 0.6f, disengage: 0.45f);
+        var configHigh = MakeConfig(strength: 0.5f, threshold: 0.9f, disengage: 0.75f);
 
         InputSample r1 = default, r2 = default;
         for (int i = 0; i < 40; i++)
@@ -199,5 +200,97 @@ public class DirectionalIntentTransformTests
         // Lower threshold should result in more boost (X further ahead)
         Assert.True(r1.X >= r2.X,
             $"Lower threshold should give >= boost: low={r1.X:F4}, high={r2.X:F4}");
+    }
+
+    // ── v4 hysteresis tests ──
+
+    [Fact]
+    public void Hysteresis_StaysEngagedBetweenThresholds()
+    {
+        // Build coherence above engage threshold (0.80), then inject noise
+        // that drops coherence to ~0.70 (between disengage=0.65 and engage=0.80).
+        // Boost should persist (engaged, not yet below disengage).
+        var transform = new DirectionalIntentTransform();
+        var config = MakeConfig(strength: 0.8f, threshold: 0.80f, disengage: 0.65f);
+
+        // Phase 1: Build coherence with consistent rightward motion (40 ticks)
+        for (int i = 0; i < 40; i++)
+        {
+            var input = new InputSample(i * 5f, 0f, 5f, 0f, false, false, i);
+            transform.Apply(in input, Ctx(config));
+        }
+
+        // Phase 2: Inject a few noisy ticks that reduce coherence but not below 0.65
+        // We alternate slightly: dx=5 then dx=3 (still mostly rightward, coherence drops a bit)
+        float lastBoostX = 0f;
+        for (int i = 40; i < 55; i++)
+        {
+            float dx = (i % 3 == 0) ? 2f : 5f; // Mostly rightward, occasional slow
+            float x = i * 5f;
+            var input = new InputSample(x, 0f, dx, 0f, false, false, i);
+            var result = transform.Apply(in input, Ctx(config));
+            lastBoostX = result.X;
+        }
+
+        // Boost should still be active — X should be ahead of baseline
+        float baseline = 54f * 5f;
+        Assert.True(lastBoostX > baseline,
+            $"Boost should persist between thresholds: X ({lastBoostX:F4}) > baseline ({baseline:F4})");
+    }
+
+    [Fact]
+    public void Hysteresis_DisengagesBelowDisengageThreshold()
+    {
+        // Build coherence, then feed alternating directions to crash coherence
+        // below disengage threshold (0.65). Boost should stop.
+        var transform = new DirectionalIntentTransform();
+        var config = MakeConfig(strength: 0.8f, threshold: 0.80f, disengage: 0.65f);
+
+        // Phase 1: Build coherence
+        for (int i = 0; i < 40; i++)
+        {
+            var input = new InputSample(i * 5f, 0f, 5f, 0f, false, false, i);
+            transform.Apply(in input, Ctx(config));
+        }
+
+        // Phase 2: Destroy coherence with alternating directions
+        for (int i = 40; i < 80; i++)
+        {
+            float dx = (i % 2 == 0) ? 5f : -5f;
+            var input = new InputSample(200f, 0f, dx, 0f, false, false, i);
+            transform.Apply(in input, Ctx(config));
+        }
+
+        // Phase 3: Apply one more tick — should NOT be boosted (disengaged)
+        var finalInput = new InputSample(200f, 0f, 5f, 0f, false, false, 80);
+        var finalResult = transform.Apply(in finalInput, Ctx(config));
+
+        // After alternating phase, coherence EMA should be near 0 → well below 0.65
+        // No boost → X should equal input X
+        Assert.Equal(200f, finalResult.X, 1);
+    }
+
+    [Fact]
+    public void Hysteresis_ResetClearsEngageState()
+    {
+        var transform = new DirectionalIntentTransform();
+        var config = MakeConfig(strength: 0.8f, threshold: 0.80f, disengage: 0.65f);
+
+        // Build coherence and engage
+        for (int i = 0; i < 40; i++)
+        {
+            var input = new InputSample(i * 5f, 0f, 5f, 0f, false, false, i);
+            transform.Apply(in input, Ctx(config));
+        }
+
+        // Reset
+        transform.Reset();
+
+        // After reset, two ticks of consistent motion should NOT be boosted
+        // (need many ticks to re-engage since coherence EMA was reset to 0)
+        transform.Apply(new InputSample(0f, 0f, 5f, 0f, false, false, 0), Ctx(config));
+        var result = transform.Apply(new InputSample(5f, 0f, 5f, 0f, false, false, 1), Ctx(config));
+
+        Assert.Equal(5f, result.X, 2); // No boost after just 2 ticks
     }
 }
