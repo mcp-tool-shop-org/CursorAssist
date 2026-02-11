@@ -129,7 +129,7 @@ public class ProfileToConfigMapperTests
     public void PolicyVersion_IsSet()
     {
         var config = ProfileToConfigMapper.Map(MakeProfile());
-        Assert.Equal(3, config.MappingPolicyVersion);
+        Assert.Equal(4, config.MappingPolicyVersion);
         Assert.Equal(ProfileToConfigMapper.PolicyVersion, config.MappingPolicyVersion);
     }
 
@@ -195,9 +195,9 @@ public class ProfileToConfigMapperTests
     [Fact]
     public void SignificantTremor_SetsDeadzoneRadius()
     {
-        // amplitude=3, freq=6 Hz → D = 0.8 × 3 × √(6/8) = 2.4 × √0.75 ≈ 2.078
+        // amplitude=3, freq=6 Hz → D = 0.8 × 3 × (6/8)^0.65 (v4 power-law)
         var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f));
-        float expected = Math.Clamp(0.8f * 3f * MathF.Sqrt(6f / 8f), 0.2f, 3.0f);
+        float expected = Math.Clamp(0.8f * 3f * MathF.Pow(6f / 8f, 0.65f), 0.2f, 3.0f);
         Assert.Equal(expected, config.DeadzoneRadiusVpx, 3);
     }
 
@@ -225,7 +225,7 @@ public class ProfileToConfigMapperTests
         Assert.False(config.SmoothingDualPoleEnabled);
     }
 
-    // ── Frequency-weighted deadzone tests (v3) ──
+    // ── Frequency-weighted deadzone tests (v4: power-law) ──
 
     [Fact]
     public void FreqWeightedDeadzone_HigherFreq_LargerD()
@@ -250,12 +250,12 @@ public class ProfileToConfigMapperTests
     [Fact]
     public void FreqWeightedDeadzone_ExactValue()
     {
-        // A=2.5, f=8 Hz → D = 0.8 × 2.5 × √(8/8) = 0.8 × 2.5 × 1.0 = 2.0
+        // A=2.5, f=8 Hz → D = 0.8 × 2.5 × (8/8)^0.65 = 0.8 × 2.5 × 1.0 = 2.0
         var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 2.5f, freqHz: 8f));
         Assert.Equal(2.0f, config.DeadzoneRadiusVpx, 3);
     }
 
-    // ── Phase compensation tests (v3) ──
+    // ── Phase compensation tests (v4) ──
 
     [Fact]
     public void PhaseComp_DerivedFromAlpha()
@@ -280,7 +280,7 @@ public class ProfileToConfigMapperTests
         Assert.Equal(0f, config.PhaseCompensationGainS, 6);
     }
 
-    // ── Intent boost tests (v3) ──
+    // ── Intent boost tests (v4) ──
 
     [Fact]
     public void IntentBoost_GoodPathEfficiency_Enabled()
@@ -311,6 +311,40 @@ public class ProfileToConfigMapperTests
     {
         var config = ProfileToConfigMapper.Map(MakeProfile());
         Assert.Equal(0.8f, config.IntentCoherenceThreshold, 4);
+    }
+
+    // ── v4 power-law frequency exponent validation ──
+
+    [Fact]
+    public void FreqWeightedDeadzone_V4_HighFreq12Hz_StrongerThanV3Sqrt()
+    {
+        // At 12 Hz: (12/8)^0.65 ≈ 1.349 > √(12/8) ≈ 1.225
+        // v4 produces a larger deadzone at high frequencies than v3 did
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 12f));
+        float v3Value = Math.Clamp(0.8f * 3f * MathF.Sqrt(12f / 8f), 0.2f, 3.0f);
+        Assert.True(config.DeadzoneRadiusVpx > v3Value,
+            $"V4 DZ at 12 Hz ({config.DeadzoneRadiusVpx:F4}) should be > V3 ({v3Value:F4})");
+    }
+
+    [Fact]
+    public void FreqWeightedDeadzone_V4_LowFreq4Hz_WeakerThanV3Sqrt()
+    {
+        // At 4 Hz: (4/8)^0.65 ≈ 0.637 < √(4/8) ≈ 0.707
+        // v4 produces a smaller deadzone at low frequencies than v3 did
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 4f));
+        float v3Value = Math.Clamp(0.8f * 3f * MathF.Sqrt(4f / 8f), 0.2f, 3.0f);
+        Assert.True(config.DeadzoneRadiusVpx < v3Value,
+            $"V4 DZ at 4 Hz ({config.DeadzoneRadiusVpx:F4}) should be < V3 ({v3Value:F4})");
+    }
+
+    [Fact]
+    public void FreqWeightedDeadzone_V4_RefFreq8Hz_Unchanged()
+    {
+        // At reference frequency 8 Hz: (8/8)^0.65 = 1.0 = √(8/8)
+        // Both v3 and v4 produce the same result at the reference frequency
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 2.5f, freqHz: 8f));
+        float v3Value = Math.Clamp(0.8f * 2.5f * MathF.Sqrt(8f / 8f), 0.2f, 3.0f);
+        Assert.Equal(v3Value, config.DeadzoneRadiusVpx, 3);
     }
 
     private static MotorProfile MakeProfile(

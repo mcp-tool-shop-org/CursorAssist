@@ -56,7 +56,7 @@ public class PolicyMapperTests
     public void PolicyVersionIsSet()
     {
         var config = ProfileToConfigMapper.Map(MakeProfile());
-        Assert.Equal(3, config.MappingPolicyVersion);
+        Assert.Equal(4, config.MappingPolicyVersion);
         Assert.Equal(ProfileToConfigMapper.PolicyVersion, config.MappingPolicyVersion);
     }
 

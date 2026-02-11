@@ -8,7 +8,7 @@ namespace CursorAssist.Engine.Mapping;
 /// </summary>
 public static class ProfileToConfigMapper
 {
-    public const int PolicyVersion = 3;
+    public const int PolicyVersion = 4;
 
     // Closed-form frequency → alpha mapping constant:
     //   α_min = Clamp(FreqToAlphaK × f_tremor, 0.20, 0.40)
@@ -19,7 +19,7 @@ public static class ProfileToConfigMapper
 
     /// <summary>
     /// Map a motor profile to an assistive configuration.
-    /// v3 policy: freq-weighted deadzone, phase compensation, directional intent.
+    /// v4 policy: power-law freq-weighted deadzone, phase compensation, directional intent.
     /// </summary>
     public static AssistiveConfig Map(MotorProfile profile)
     {
@@ -79,9 +79,14 @@ public static class ProfileToConfigMapper
         // Snap radius: only for significant tremor
         float snapRadius = profile.TremorAmplitudeVpx > 3f ? 5f : 0f;
 
-        // Soft deadzone: D = k × A × √(f / f_ref)
-        // k=0.8, f_ref=8 Hz. Frequency weighting: higher freq → more destabilizing
-        // √ gives gentle increase (linear would over-penalize)
+        // Soft deadzone: D = k × A × (f / f_ref)^p
+        // k=0.8, f_ref=8 Hz, p=0.65 (v4: power-law replaces v3 sqrt)
+        // Power-law exponent 0.65 is between sqrt (0.5) and linear (1.0):
+        //   - Relaxes suppression at low frequencies (3–4 Hz) where tremor
+        //     overlaps with slow intentional motion
+        //   - Tightens suppression at high frequencies (12+ Hz) where small
+        //     per-tick deltas accumulate more destabilization
+        //   - Range expands from 1.73:1 (sqrt) to 2.12:1 across [4, 12] Hz
         // When f=0 (no measurement): fall back to D = k × A (amplitude-only)
         // Disable for negligible tremor (< 0.5 vpx)
         float deadzoneRadius;
@@ -89,8 +94,9 @@ public static class ProfileToConfigMapper
         {
             const float kDz = 0.8f;
             const float fRef = 8f;
+            const float FreqExponent = 0.65f;
             float freqWeight = profile.TremorFrequencyHz > 0f
-                ? MathF.Sqrt(profile.TremorFrequencyHz / fRef)
+                ? MathF.Pow(profile.TremorFrequencyHz / fRef, FreqExponent)
                 : 1f;
             deadzoneRadius = Math.Clamp(kDz * profile.TremorAmplitudeVpx * freqWeight, 0.2f, 3.0f);
         }
