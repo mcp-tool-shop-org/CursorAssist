@@ -74,6 +74,9 @@ public static class CanonValidator
         if (config.EdgeResistance is < 0f or > 1f)
             errors.Add($"EdgeResistance must be [0, 1]; got {config.EdgeResistance}.");
 
+        if (config.DeadzoneRadiusVpx < 0f)
+            errors.Add($"DeadzoneRadiusVpx must be >= 0; got {config.DeadzoneRadiusVpx}.");
+
         return new ValidationResult(errors);
     }
 

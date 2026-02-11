@@ -80,6 +80,16 @@ public static class ProfileToConfigMapper
         // Snap radius: only for significant tremor
         float snapRadius = profile.TremorAmplitudeVpx > 3f ? 5f : 0f;
 
+        // Soft deadzone: D = k × TremorAmplitudeVpx, clamped [0.2, 3.0]
+        // Disable for negligible tremor (< 0.5 vpx)
+        float deadzoneRadius = profile.TremorAmplitudeVpx > 0.5f
+            ? Math.Clamp(profile.TremorAmplitudeVpx * 1.0f, 0.2f, 3.0f)
+            : 0f;
+
+        // Dual-pole: enable for significant tremor amplitude (> 4 vpx)
+        // Provides -40 dB/decade at low velocity for precision modes
+        bool dualPole = profile.TremorAmplitudeVpx > 4f;
+
         return new AssistiveConfig
         {
             SourceProfileId = profile.ProfileId,
@@ -90,6 +100,8 @@ public static class ProfileToConfigMapper
             SmoothingVelocityLow = vLow,
             SmoothingVelocityHigh = vHigh,
             SmoothingAdaptiveFrequencyEnabled = hasFrequency,
+            SmoothingDualPoleEnabled = dualPole,
+            DeadzoneRadiusVpx = deadzoneRadius,
             PredictionHorizonS = prediction,
             MagnetismRadiusVpx = magnetismRadius,
             MagnetismStrength = magnetismStrength,

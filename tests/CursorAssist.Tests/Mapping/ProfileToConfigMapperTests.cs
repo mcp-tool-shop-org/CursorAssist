@@ -23,6 +23,8 @@ public class ProfileToConfigMapperTests
         Assert.Equal(c1.EdgeResistance, c2.EdgeResistance);
         Assert.Equal(c1.SnapRadiusVpx, c2.SnapRadiusVpx);
         Assert.Equal(c1.SmoothingAdaptiveFrequencyEnabled, c2.SmoothingAdaptiveFrequencyEnabled);
+        Assert.Equal(c1.DeadzoneRadiusVpx, c2.DeadzoneRadiusVpx);
+        Assert.Equal(c1.SmoothingDualPoleEnabled, c2.SmoothingDualPoleEnabled);
     }
 
     [Fact]
@@ -77,6 +79,7 @@ public class ProfileToConfigMapperTests
         Assert.True(config.EdgeResistance >= 0f && config.EdgeResistance <= 1f);
         Assert.True(config.MagnetismRadiusVpx >= 0f);
         Assert.True(config.MagnetismHysteresisVpx >= 0f);
+        Assert.True(config.DeadzoneRadiusVpx >= 0f);
     }
 
     [Fact]
@@ -182,6 +185,40 @@ public class ProfileToConfigMapperTests
     {
         var config = ProfileToConfigMapper.Map(MakeProfile(freqHz: 0f));
         Assert.False(config.SmoothingAdaptiveFrequencyEnabled);
+    }
+
+    // ── Deadzone + dual-pole mapping tests ──
+
+    [Fact]
+    public void SignificantTremor_SetsDeadzoneRadius()
+    {
+        // amplitude=3 (> 0.5) → D = Clamp(3*1.0, 0.2, 3.0) = 3.0
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f));
+        Assert.Equal(3.0f, config.DeadzoneRadiusVpx, 4);
+    }
+
+    [Fact]
+    public void NegligibleTremor_DisablesDeadzone()
+    {
+        // amplitude=0.3 (< 0.5) → D = 0 (disabled)
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 0.3f));
+        Assert.Equal(0f, config.DeadzoneRadiusVpx, 4);
+    }
+
+    [Fact]
+    public void HighTremor_EnablesDualPole()
+    {
+        // amplitude=5 (> 4) → dualPole = true
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 5f));
+        Assert.True(config.SmoothingDualPoleEnabled);
+    }
+
+    [Fact]
+    public void LowTremor_DisablesDualPole()
+    {
+        // amplitude=2 (≤ 4) → dualPole = false
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 2f));
+        Assert.False(config.SmoothingDualPoleEnabled);
     }
 
     private static MotorProfile MakeProfile(

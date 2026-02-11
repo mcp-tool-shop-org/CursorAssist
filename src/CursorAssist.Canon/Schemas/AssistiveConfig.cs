@@ -87,6 +87,34 @@ public sealed record AssistiveConfig
     [JsonPropertyName("smoothingAdaptiveFrequencyEnabled")]
     public bool SmoothingAdaptiveFrequencyEnabled { get; init; }
 
+    /// <summary>
+    /// When true, applies 2nd-order EMA (two cascaded poles) at velocities
+    /// ≤ VelocityLow for −40 dB/decade rolloff (vs −20 dB/decade single-pole).
+    /// Blends to single-pole between VelocityLow and VelocityHigh.
+    /// Default false (single-pole only). Enabled for high tremor amplitude.
+    /// </summary>
+    [JsonPropertyName("smoothingDualPoleEnabled")]
+    public bool SmoothingDualPoleEnabled { get; init; }
+
+    // ── Soft deadzone (magnitude-domain tremor suppression) ──
+    //
+    // Quadratic compression: r' = r² / (r + D)
+    //   r ≪ D → r' ≈ r²/D (near zero, suppressed)
+    //   r ≫ D → r' ≈ r (pass-through)
+    //   Continuous, differentiable, no hard edge.
+    //
+    // D derived from TremorAmplitudeVpx: D = k × A, k=1.0
+    // Pipeline: Raw → SoftDeadzone → SmoothingTransform → Magnetism
+
+    /// <summary>
+    /// Quadratic deadzone compression radius in virtual pixels.
+    /// Deltas with magnitude ≪ D are suppressed; magnitude ≫ D pass through.
+    /// Formula: r' = r² / (r + D). Default 0 = disabled.
+    /// Derived from TremorAmplitudeVpx. Range [0, 3.0].
+    /// </summary>
+    [JsonPropertyName("deadzoneRadiusVpx")]
+    public float DeadzoneRadiusVpx { get; init; }
+
     /// <summary>Prediction horizon in seconds. 0 = no prediction.</summary>
     [JsonPropertyName("predictionHorizonS")]
     public float PredictionHorizonS { get; init; }

@@ -20,6 +20,8 @@ public class PolicyMapperTests
         Assert.Equal(c1.SmoothingVelocityHigh, c2.SmoothingVelocityHigh);
         Assert.Equal(c1.MagnetismRadiusVpx, c2.MagnetismRadiusVpx);
         Assert.Equal(c1.MagnetismStrength, c2.MagnetismStrength);
+        Assert.Equal(c1.DeadzoneRadiusVpx, c2.DeadzoneRadiusVpx);
+        Assert.Equal(c1.SmoothingDualPoleEnabled, c2.SmoothingDualPoleEnabled);
     }
 
     [Fact]
@@ -40,6 +42,8 @@ public class PolicyMapperTests
         Assert.Equal(policyConfig.EdgeResistance, engineConfig.EdgeResistance);
         Assert.Equal(policyConfig.SnapRadiusVpx, engineConfig.SnapRadiusVpx);
         Assert.Equal(policyConfig.SmoothingAdaptiveFrequencyEnabled, engineConfig.SmoothingAdaptiveFrequencyEnabled);
+        Assert.Equal(policyConfig.DeadzoneRadiusVpx, engineConfig.DeadzoneRadiusVpx);
+        Assert.Equal(policyConfig.SmoothingDualPoleEnabled, engineConfig.SmoothingDualPoleEnabled);
     }
 
     [Fact]

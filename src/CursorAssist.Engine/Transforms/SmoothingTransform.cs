@@ -35,6 +35,12 @@ namespace CursorAssist.Engine.Transforms;
 ///   SmoothingVelocityHigh — intentional motion floor (default 8.0 vpx/tick)
 ///   SmoothingAdaptiveFrequencyEnabled — enable real-time frequency adaptation
 ///
+/// When SmoothingDualPoleEnabled = true:
+///   Cascades a 2nd EMA stage at low velocity for −40 dB/decade rolloff.
+///   At velocity ≤ vLow: output = 2nd pole (full dual-pole suppression)
+///   Between vLow and vHigh: Lerp(2nd pole, 1st pole, smoothStep)
+///   At velocity ≥ vHigh: output = 1st pole (single-pole, no extra lag)
+///
 /// No target knowledge required. Universal base-layer filter.
 /// </summary>
 public sealed class SmoothingTransform : IInputTransform
@@ -44,6 +50,10 @@ public sealed class SmoothingTransform : IInputTransform
     private float _smoothX;
     private float _smoothY;
     private bool _initialized;
+
+    // Second pole state (only active when SmoothingDualPoleEnabled = true)
+    private float _smooth2X;
+    private float _smooth2Y;
 
     // Frequency estimator (only active when adaptive mode enabled)
     private readonly TremorFrequencyEstimator _freqEstimator = new();
@@ -59,6 +69,8 @@ public sealed class SmoothingTransform : IInputTransform
             // No smoothing — just track raw position
             _smoothX = input.X;
             _smoothY = input.Y;
+            _smooth2X = input.X;
+            _smooth2Y = input.Y;
             _initialized = true;
             return input;
         }
@@ -67,6 +79,8 @@ public sealed class SmoothingTransform : IInputTransform
         {
             _smoothX = input.X;
             _smoothY = input.Y;
+            _smooth2X = input.X;
+            _smooth2Y = input.Y;
             _initialized = true;
             return input;
         }
@@ -141,6 +155,40 @@ public sealed class SmoothingTransform : IInputTransform
         _smoothX += alpha * (input.X - _smoothX);
         _smoothY += alpha * (input.Y - _smoothY);
 
+        // ── Dual-pole (2nd-order EMA) — optional ──
+        // Second pole cascaded on the first: stronger suppression at low velocity
+        bool dualPoleEnabled = config!.SmoothingDualPoleEnabled;
+        if (dualPoleEnabled)
+        {
+            _smooth2X += alpha * (_smoothX - _smooth2X);
+            _smooth2Y += alpha * (_smoothY - _smooth2Y);
+
+            // Velocity-gated blend:
+            //   ≤ vLow: full dual-pole (−40 dB/decade)
+            //   ≥ vHigh: single-pole (no extra lag)
+            //   between: SmoothStep interpolation
+            float outX, outY;
+            if (velocity <= vLow)
+            {
+                outX = _smooth2X;
+                outY = _smooth2Y;
+            }
+            else if (velocity >= vHigh)
+            {
+                outX = _smoothX;
+                outY = _smoothY;
+            }
+            else
+            {
+                float t = (velocity - vLow) / (vHigh - vLow);
+                float blend = t * t * (3f - 2f * t); // SmoothStep: 0→dual, 1→single
+                outX = _smooth2X + blend * (_smoothX - _smooth2X);
+                outY = _smooth2Y + blend * (_smoothY - _smooth2Y);
+            }
+
+            return input with { X = outX, Y = outY };
+        }
+
         return input with { X = _smoothX, Y = _smoothY };
     }
 
@@ -148,6 +196,8 @@ public sealed class SmoothingTransform : IInputTransform
     {
         _smoothX = 0f;
         _smoothY = 0f;
+        _smooth2X = 0f;
+        _smooth2Y = 0f;
         _initialized = false;
         _freqEstimator.Reset();
         _freqEstimatorSeeded = false;

@@ -18,7 +18,8 @@ public class SmoothingTransformTests
         float maxAlpha = 0.9f,
         float vLow = 0.5f,
         float vHigh = 8f,
-        bool adaptiveEnabled = false) => new()
+        bool adaptiveEnabled = false,
+        bool dualPole = false) => new()
     {
         SourceProfileId = "t",
         SmoothingStrength = strength,
@@ -26,7 +27,8 @@ public class SmoothingTransformTests
         SmoothingMaxAlpha = maxAlpha,
         SmoothingVelocityLow = vLow,
         SmoothingVelocityHigh = vHigh,
-        SmoothingAdaptiveFrequencyEnabled = adaptiveEnabled
+        SmoothingAdaptiveFrequencyEnabled = adaptiveEnabled,
+        SmoothingDualPoleEnabled = dualPole
     };
 
     private static MotorProfile MakeProfile(float freqHz = 6f, float amplitude = 3f) => new()
@@ -517,5 +519,131 @@ public class SmoothingTransformTests
 
         // Expected: 100 + 0.25 * 0.3 = 100.075 (same as static)
         Assert.Equal(100.075f, result.X, 3);
+    }
+
+    // ── Dual-pole (2nd-order EMA) tests ──
+
+    [Fact]
+    public void DualPoleDisabled_SinglePoleOutput()
+    {
+        // Regression guard: dual-pole disabled → output must be identical to single-pole
+        var configOff = MakeConfig(strength: 1f, minAlpha: 0.25f, dualPole: false);
+        var configOn = MakeConfig(strength: 1f, minAlpha: 0.25f, dualPole: false);
+
+        var t1 = new SmoothingTransform();
+        var t2 = new SmoothingTransform();
+
+        var samples = new[]
+        {
+            new InputSample(100f, 100f, 0f, 0f, false, false, 0),
+            new InputSample(100.3f, 100f, 0.3f, 0f, false, false, 1),
+            new InputSample(100.6f, 100f, 0.3f, 0f, false, false, 2),
+            new InputSample(100.9f, 100f, 0.3f, 0f, false, false, 3),
+        };
+
+        for (int i = 0; i < samples.Length; i++)
+        {
+            var ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = configOff };
+            var r1 = t1.Apply(in samples[i], ctx);
+
+            ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = configOn };
+            var r2 = t2.Apply(in samples[i], ctx);
+
+            Assert.Equal(r1.X, r2.X);
+            Assert.Equal(r1.Y, r2.Y);
+        }
+    }
+
+    [Fact]
+    public void DualPoleEnabled_LowVelocity_StrongerSuppression()
+    {
+        // At low velocity (below vLow), dual-pole should suppress more than single-pole
+        var configSingle = MakeConfig(strength: 1f, minAlpha: 0.25f, vLow: 0.5f, vHigh: 8f, dualPole: false);
+        var configDual = MakeConfig(strength: 1f, minAlpha: 0.25f, vLow: 0.5f, vHigh: 8f, dualPole: true);
+
+        var tSingle = new SmoothingTransform();
+        var tDual = new SmoothingTransform();
+
+        // Initialize both
+        var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = configSingle };
+        tSingle.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx);
+        ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = configDual };
+        tDual.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx);
+
+        // Feed several small-jitter ticks (below vLow=0.5)
+        InputSample resultSingle = default, resultDual = default;
+        for (int i = 1; i <= 10; i++)
+        {
+            float x = 100f + i * 0.3f;
+            var input = new InputSample(x, 100f, 0.3f, 0f, false, false, i);
+
+            ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = configSingle };
+            resultSingle = tSingle.Apply(in input, ctx);
+
+            ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = configDual };
+            resultDual = tDual.Apply(in input, ctx);
+        }
+
+        // Dual-pole should track LESS (more suppression) at low velocity
+        float singleDisplacement = resultSingle.X - 100f;
+        float dualDisplacement = resultDual.X - 100f;
+
+        Assert.True(dualDisplacement < singleDisplacement,
+            $"Dual-pole ({dualDisplacement:F4}) should suppress more than single-pole ({singleDisplacement:F4}) at low velocity");
+    }
+
+    [Fact]
+    public void DualPoleEnabled_HighVelocity_SinglePoleOutput()
+    {
+        // Above vHigh, dual-pole should produce same output as single-pole
+        // (blends to 100% single-pole at high velocity)
+        var configSingle = MakeConfig(strength: 1f, minAlpha: 0.25f, maxAlpha: 0.9f, vLow: 0.5f, vHigh: 8f, dualPole: false);
+        var configDual = MakeConfig(strength: 1f, minAlpha: 0.25f, maxAlpha: 0.9f, vLow: 0.5f, vHigh: 8f, dualPole: true);
+
+        var tSingle = new SmoothingTransform();
+        var tDual = new SmoothingTransform();
+
+        // Initialize both
+        var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = configSingle };
+        tSingle.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx);
+        ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = configDual };
+        tDual.Apply(new InputSample(100f, 100f, 0f, 0f, false, false, 0), ctx);
+
+        // Large intentional movement (well above vHigh=8)
+        var move = new InputSample(120f, 100f, 20f, 0f, false, false, 1);
+        ctx = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = configSingle };
+        var resultSingle = tSingle.Apply(in move, ctx);
+        ctx = new TransformContext { Tick = 1, Dt = 1f / 60f, Config = configDual };
+        var resultDual = tDual.Apply(in move, ctx);
+
+        Assert.Equal(resultSingle.X, resultDual.X, 2);
+        Assert.Equal(resultSingle.Y, resultDual.Y, 2);
+    }
+
+    [Fact]
+    public void DualPoleEnabled_Deterministic()
+    {
+        var config = MakeConfig(strength: 0.8f, dualPole: true);
+
+        var t1 = new SmoothingTransform();
+        var t2 = new SmoothingTransform();
+
+        var samples = new[]
+        {
+            new InputSample(100f, 100f, 0f, 0f, false, false, 0),
+            new InputSample(101f, 100.5f, 1f, 0.5f, false, false, 1),
+            new InputSample(100.5f, 101f, -0.5f, 0.5f, false, false, 2),
+            new InputSample(102f, 99f, 1.5f, -1f, false, false, 3),
+        };
+
+        for (int i = 0; i < samples.Length; i++)
+        {
+            var ctx = new TransformContext { Tick = i, Dt = 1f / 60f, Config = config };
+            var r1 = t1.Apply(in samples[i], ctx);
+            var r2 = t2.Apply(in samples[i], ctx);
+
+            Assert.Equal(r1.X, r2.X);
+            Assert.Equal(r1.Y, r2.Y);
+        }
     }
 }
