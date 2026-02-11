@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using CursorAssist.Canon.Schemas;
 using CursorAssist.Engine.Core;
+using CursorAssist.Engine.Analysis;
 using CursorAssist.Engine.Mapping;
 using CursorAssist.Engine.Metrics;
 using CursorAssist.Engine.Transforms;
@@ -24,6 +25,7 @@ namespace CursorAssist.Pilot;
 ///     --profile &lt;motor.json&gt;    Load MotorProfile, derive config via mapper
 ///     --precision                  Enable dual-pole precision mode
 ///     --targets                    Enable UI Automation target awareness
+///     --calibrate                  Run 5-second calibration session
 ///     --trace                     Enable tick-level trace logging
 ///     --session-dir &lt;path&gt;       Output directory (default: ./sessions)
 ///     --export-config &lt;path&gt;     Export active config to JSON file and exit
@@ -65,6 +67,11 @@ public static partial class Program
         bool traceEnabled = HasFlag(args, "--trace");
         bool precisionMode = HasFlag(args, "--precision");
         bool targetsEnabled = HasFlag(args, "--targets");
+        bool calibrate = HasFlag(args, "--calibrate");
+
+        // ── Calibration mode (standalone) ───────────────────────────
+        if (calibrate)
+            return RunCalibration(exportPath);
 
         // ── Resolve config ────────────────────────────────────────
         AssistiveConfig? config = null;
@@ -309,6 +316,97 @@ public static partial class Program
         return 0;
     }
 
+    private static int RunCalibration(string? exportPath)
+    {
+        const int durationTicks = 300; // 5 seconds at 60 Hz
+        var session = new CalibrationSession(durationTicks);
+
+        Console.WriteLine("CursorAssist Calibration");
+        Console.WriteLine(new string('\u2500', 56));
+        Console.WriteLine("Move your mouse naturally for 5 seconds.");
+        Console.WriteLine("Include both intentional movements and pauses.");
+        Console.WriteLine();
+        Console.Write("Ready? Press Enter to start...");
+        Console.ReadLine();
+        Console.WriteLine();
+        Console.WriteLine("Recording... move your mouse now!");
+
+        // Use a simple polling loop with WH_MOUSE_LL-captured deltas
+        // For simplicity in the pilot, we use raw input from the capture system
+        // For now: use a simulated timer-based approach that reads cursor position deltas
+        float prevX = 0f, prevY = 0f;
+        if (NativeMethods.GetCursorPos(out var startPt))
+        {
+            prevX = startPt.X;
+            prevY = startPt.Y;
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        double tickInterval = 1.0 / 60.0;
+        double nextTick = tickInterval;
+
+        while (!session.IsComplete)
+        {
+            double elapsed = sw.Elapsed.TotalSeconds;
+            if (elapsed >= nextTick)
+            {
+                if (NativeMethods.GetCursorPos(out var pt))
+                {
+                    float dx = pt.X - prevX;
+                    float dy = pt.Y - prevY;
+                    session.RecordTick(dx, dy);
+                    prevX = pt.X;
+                    prevY = pt.Y;
+                }
+                else
+                {
+                    session.RecordTick(0f, 0f);
+                }
+                nextTick += tickInterval;
+
+                // Progress indicator
+                int pct = session.TickCount * 100 / durationTicks;
+                Console.Write($"\rProgress: {pct}%  ");
+            }
+
+            Thread.Sleep(1);
+        }
+
+        Console.WriteLine();
+        Console.WriteLine();
+
+        var result = session.GetResult();
+        var c = CultureInfo.InvariantCulture;
+
+        Console.WriteLine("Calibration Results:");
+        Console.WriteLine(new string('\u2500', 56));
+        Console.WriteLine(string.Create(c, $"Frequency:    {result.FrequencyHz:F1} Hz"));
+        Console.WriteLine(string.Create(c, $"Amplitude:    {result.AmplitudeVpx:F2} vpx (RMS)"));
+        Console.WriteLine(string.Create(c, $"Confidence:   {result.Confidence:F2}"));
+        Console.WriteLine(string.Create(c, $"Samples:      {result.SampleCount}"));
+        Console.WriteLine();
+
+        // Derive config via mapper
+        var profile = result.ToMotorProfile("calibrated");
+        var config = ProfileToConfigMapper.Map(profile);
+
+        Console.WriteLine("Derived Config:");
+        Console.WriteLine(string.Create(c, $"  Smoothing:    strength={config.SmoothingStrength:F2}  minAlpha={config.SmoothingMinAlpha:F2}"));
+        Console.WriteLine(string.Create(c, $"  Deadzone:     {config.DeadzoneRadiusVpx:F2} vpx"));
+        Console.WriteLine(string.Create(c, $"  Phase comp:   {config.PhaseCompensationGainS * 1000f:F1} ms"));
+        Console.WriteLine(string.Create(c, $"  Intent boost: {config.IntentBoostStrength:F2}"));
+
+        if (exportPath is not null)
+        {
+            string json = JsonSerializer.Serialize(config, JsonOpts);
+            File.WriteAllText(exportPath, json);
+            Console.WriteLine();
+            Console.WriteLine($"Config exported to {exportPath}");
+        }
+
+        return 0;
+    }
+
     private static void PrintUsage()
     {
         Console.WriteLine("CursorAssist Pilot v0.1 — Dev-only console host");
@@ -322,6 +420,7 @@ public static partial class Program
         Console.WriteLine("  --safe-default <level>    Use built-in safe default (minimal|moderate)");
         Console.WriteLine("  --precision               Enable dual-pole precision mode (−40 dB/decade)");
         Console.WriteLine("  --targets                 Enable UI Automation target awareness");
+        Console.WriteLine("  --calibrate               Run 5-second calibration session");
         Console.WriteLine("  --trace                   Enable tick-level trace logging");
         Console.WriteLine("  --session-dir <path>      Output directory (default: ./sessions)");
         Console.WriteLine("  --export-config <path>    Export active config to JSON file and exit");
