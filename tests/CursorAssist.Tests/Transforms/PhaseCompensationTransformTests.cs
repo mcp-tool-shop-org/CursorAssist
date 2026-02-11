@@ -41,37 +41,46 @@ public class PhaseCompensationTransformTests
     [Fact]
     public void PositiveGain_ProjectsForward()
     {
-        // gain=0.01s, Dx=2, Fs=60 → X += 0.01 × 2 × 60 = 1.2
+        // gain=0.01s, Dx=2, Dy=0, velocity=2
+        // v4: effectiveGain = 0.01 / (1 + 2/15) = 0.01/1.1333 ≈ 0.008824
+        // X += 0.008824 × 2 × 60 ≈ 1.0588
         var transform = new PhaseCompensationTransform();
         var input = new InputSample(50f, 80f, 2f, 0f, false, false, 1);
         var result = transform.Apply(in input, Ctx(MakeConfig(gainS: 0.01f)));
 
-        Assert.Equal(50f + 1.2f, result.X, 4);
+        float effectiveGain = 0.01f / (1f + 2f / 15f);
+        Assert.Equal(50f + effectiveGain * 2f * 60f, result.X, 3);
         Assert.Equal(80f, result.Y, 4);
     }
 
     [Fact]
     public void NegativeVelocity_ProjectsBackward()
     {
-        // gain=0.01s, Dx=-3 → X += 0.01 × (-3) × 60 = -1.8
+        // gain=0.01s, Dx=-3, Dy=0, velocity=3
+        // v4: effectiveGain = 0.01 / (1 + 3/15) = 0.01/1.2 = 0.008333
+        // X += 0.008333 × (-3) × 60 = -1.5
         var transform = new PhaseCompensationTransform();
         var input = new InputSample(50f, 80f, -3f, 0f, false, false, 1);
         var result = transform.Apply(in input, Ctx(MakeConfig(gainS: 0.01f)));
 
-        Assert.Equal(50f - 1.8f, result.X, 4);
+        float effectiveGain = 0.01f / (1f + 3f / 15f);
+        Assert.Equal(50f + effectiveGain * -3f * 60f, result.X, 3);
         Assert.Equal(80f, result.Y, 4);
     }
 
     [Fact]
     public void DiagonalMovement_BothAxes()
     {
-        // gain=0.02s, Dx=1, Dy=3 → X += 0.02*1*60=1.2, Y += 0.02*3*60=3.6
+        // gain=0.02s, Dx=1, Dy=3, velocity=√10≈3.162
+        // v4: effectiveGain = 0.02 / (1 + √10/15)
         var transform = new PhaseCompensationTransform();
         var input = new InputSample(10f, 20f, 1f, 3f, false, false, 1);
         var result = transform.Apply(in input, Ctx(MakeConfig(gainS: 0.02f)));
 
-        Assert.Equal(10f + 1.2f, result.X, 4);
-        Assert.Equal(20f + 3.6f, result.Y, 4);
+        float velocity = MathF.Sqrt(1f * 1f + 3f * 3f);
+        float effectiveGain = 0.02f / (1f + velocity / 15f);
+        Assert.Equal(10f + effectiveGain * 1f * 60f, result.X, 3);
+        Assert.Equal(20f + effectiveGain * 3f * 60f, result.Y, 3);
     }
 
     [Fact]
@@ -124,5 +133,51 @@ public class PhaseCompensationTransformTests
 
         Assert.Equal(5f, result.Dx, 4);
         Assert.Equal(-3f, result.Dy, 4);
+    }
+
+    // ── v4 velocity-dependent attenuation tests ──
+
+    [Fact]
+    public void HighVelocity_AttenuatesCompensation()
+    {
+        // At velocity=30 vpx/tick, effectiveGain = gainS / (1 + 30/15) = gainS / 3
+        // Compensation offset should be < 50% of what linear (no saturation) would produce
+        var transform = new PhaseCompensationTransform();
+        var input = new InputSample(0f, 0f, 30f, 0f, false, false, 1);
+        var result = transform.Apply(in input, Ctx(MakeConfig(gainS: 0.01f)));
+
+        float linearOffset = 0.01f * 30f * 60f; // 18.0 without attenuation
+        float actualOffset = result.X - 0f;
+        Assert.True(actualOffset < linearOffset * 0.5f,
+            $"At v=30, offset ({actualOffset:F3}) should be < 50% of linear ({linearOffset:F3})");
+        Assert.True(actualOffset > 0f, "Offset should still be positive (forward)");
+    }
+
+    [Fact]
+    public void LowVelocity_NearFullCompensation()
+    {
+        // At velocity=1 vpx/tick, effectiveGain = gainS / (1 + 1/15) ≈ gainS × 0.9375
+        // Compensation offset should be > 90% of linear
+        var transform = new PhaseCompensationTransform();
+        var input = new InputSample(0f, 0f, 1f, 0f, false, false, 1);
+        var result = transform.Apply(in input, Ctx(MakeConfig(gainS: 0.01f)));
+
+        float linearOffset = 0.01f * 1f * 60f; // 0.6 without attenuation
+        float actualOffset = result.X - 0f;
+        Assert.True(actualOffset > linearOffset * 0.90f,
+            $"At v=1, offset ({actualOffset:F4}) should be > 90% of linear ({linearOffset:F4})");
+    }
+
+    [Fact]
+    public void VelocitySaturation_HalvesGainAtKnee()
+    {
+        // At VelocitySaturation=15 vpx/tick, gain should be exactly halved
+        // effectiveGain = gainS / (1 + 15/15) = gainS / 2
+        var transform = new PhaseCompensationTransform();
+        var input = new InputSample(0f, 0f, 15f, 0f, false, false, 1);
+        var result = transform.Apply(in input, Ctx(MakeConfig(gainS: 0.02f)));
+
+        float expectedOffset = (0.02f / 2f) * 15f * 60f; // 9.0
+        Assert.Equal(expectedOffset, result.X, 3);
     }
 }

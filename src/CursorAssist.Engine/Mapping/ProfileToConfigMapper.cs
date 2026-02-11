@@ -112,12 +112,17 @@ public static class ProfileToConfigMapper
         // Phase compensation: offset EMA lag with feed-forward velocity projection
         // τ_avg = (1 − avgAlpha) / avgAlpha / Fs
         // Conservative gain: 0.7× to avoid overshoot
+        // v4: frequency-aware attenuation — when minAlpha is high (≥0.40, i.e. high-freq
+        // tremor at 12+ Hz), the EMA is barely filtering and there is little lag to
+        // compensate. Phase comp at high frequency just amplifies noise, so we attenuate
+        // it down to zero. Linear ramp from full gain at minAlpha≤0.30 to zero at minAlpha≥0.40.
         float phaseCompGainS;
         if (smoothing >= 0.1f)
         {
             float avgAlpha = (minAlpha + maxAlpha) / 2f;
             float lagS = (1f - avgAlpha) / avgAlpha / 60f;
-            phaseCompGainS = lagS * 0.7f;
+            float freqAttenuation = 1f - Clamp01((minAlpha - 0.30f) / 0.10f);
+            phaseCompGainS = lagS * 0.7f * freqAttenuation;
         }
         else
         {

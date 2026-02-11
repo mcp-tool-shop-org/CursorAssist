@@ -89,16 +89,20 @@ public class RuntimeSimulationTests
         Assert.Equal(RuntimeLimits.MaxPhaseCompGainS, clamped.PhaseCompensationGainS, 4);
 
         // Step 2: Apply clamped config to actual PhaseCompensationTransform
-        // With Dx=5 at clamped gain: offset = 0.1 × 5 × 60 = 30 vpx
-        // Without clamp: offset = 0.5 × 5 × 60 = 150 vpx
+        // With Dx=5 at clamped gain=0.1, velocity=5:
+        //   v4: effectiveGain = 0.1 / (1 + 5/15) = 0.075
+        //   offset = 0.075 × 5 × 60 = 22.5 vpx
+        // Without clamp: gainS=0.5, effectiveGain = 0.5/(1+5/15) = 0.375
+        //   offset = 0.375 × 5 × 60 = 112.5 vpx
         var transform = new PhaseCompensationTransform();
         var input = new InputSample(100f, 100f, 5f, 0f, false, false, 0);
         var ctx = new TransformContext { Tick = 0, Dt = 1f / 60f, Config = clamped };
         var result = transform.Apply(in input, ctx);
 
         float offset = result.X - 100f;
-        Assert.Equal(30f, offset, 1); // 0.1 × 5 × 60 = 30
-        Assert.True(offset < 150f);    // Would be 150 without clamp
+        float expectedOffset = 0.1f / (1f + 5f / 15f) * 5f * 60f; // 22.5
+        Assert.Equal(expectedOffset, offset, 1);
+        Assert.True(offset < 112.5f);    // Would be 112.5 without clamp
 
         // Step 3: Verify ReplayStream path also clamps (it calls ClampConfig internally)
         var pipeline = new TransformPipeline().Add(new PhaseCompensationTransform());

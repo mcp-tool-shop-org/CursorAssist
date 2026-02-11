@@ -237,10 +237,10 @@ public class StabilityTests
 
         float outputAmplitude = (maxOutputX - minOutputX) / 2f;
 
-        // At 12 Hz with phase comp, output may be amplified but must be bounded.
-        // Input amplitude is 3.0 vpx; output should not exceed 20 vpx (generous bound).
-        Assert.True(outputAmplitude < 20f,
-            $"At 12 Hz: output amplitude {outputAmplitude:F3} should be bounded (< 20 vpx)");
+        // At 12 Hz with phase comp and v4 velocity saturation, amplification
+        // is bounded. Input amplitude is 3.0 vpx; tightened from 20 to 10 vpx.
+        Assert.True(outputAmplitude < 10f,
+            $"At 12 Hz: output amplitude {outputAmplitude:F3} should be bounded (< 10 vpx)");
     }
 
     [Fact]

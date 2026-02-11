@@ -280,6 +280,32 @@ public class ProfileToConfigMapperTests
         Assert.Equal(0f, config.PhaseCompensationGainS, 6);
     }
 
+    [Fact]
+    public void PhaseComp_HighFreqTremor12Hz_GainReducedToZero()
+    {
+        // f=12 Hz → minAlpha = 0.40 (clamped)
+        // freqAttenuation = 1 - Clamp01((0.40 - 0.30) / 0.10) = 1 - 1.0 = 0
+        // Phase comp gain should be zero for high-frequency tremor
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 12f));
+        Assert.Equal(0f, config.PhaseCompensationGainS, 6);
+    }
+
+    [Fact]
+    public void PhaseComp_MidFreqTremor6Hz_GainModerate()
+    {
+        // f=6 Hz → minAlpha = 0.05236*6 = 0.31416
+        // freqAttenuation = 1 - Clamp01((0.31416 - 0.30) / 0.10) ≈ 0.8584
+        // Phase comp gain reduced but still significant
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 6f));
+        Assert.True(config.PhaseCompensationGainS > 0f,
+            "Phase comp should still be enabled at 6 Hz tremor");
+
+        // Compare with a low-frequency profile where attenuation is minimal
+        var lowFreqConfig = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 4f));
+        Assert.True(config.PhaseCompensationGainS < lowFreqConfig.PhaseCompensationGainS,
+            $"6 Hz phase comp ({config.PhaseCompensationGainS:F6}) should be < 4 Hz ({lowFreqConfig.PhaseCompensationGainS:F6})");
+    }
+
     // ── Intent boost tests (v4) ──
 
     [Fact]
