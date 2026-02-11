@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CursorAssist.Runtime.Core",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CursorAssist.Runtime.Windows", "src\CursorAssist.Runtime.Windows\CursorAssist.Runtime.Windows.csproj", "{CE3D8FC6-E6EA-4F6F-9820-E30AF6714F63}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CursorAssist.Pilot", "src\CursorAssist.Pilot\CursorAssist.Pilot.csproj", "{837C9597-24D5-460B-963F-E49393F9784B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -227,6 +229,18 @@ Global
 		{CE3D8FC6-E6EA-4F6F-9820-E30AF6714F63}.Release|x64.Build.0 = Release|Any CPU
 		{CE3D8FC6-E6EA-4F6F-9820-E30AF6714F63}.Release|x86.ActiveCfg = Release|Any CPU
 		{CE3D8FC6-E6EA-4F6F-9820-E30AF6714F63}.Release|x86.Build.0 = Release|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Debug|x64.Build.0 = Debug|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Debug|x86.Build.0 = Debug|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Release|x64.ActiveCfg = Release|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Release|x64.Build.0 = Release|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Release|x86.ActiveCfg = Release|Any CPU
+		{837C9597-24D5-460B-963F-E49393F9784B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -246,5 +260,6 @@ Global
 		{1DA21D49-57A0-41AD-9595-9409434A52D1} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 		{789C5DEE-BB50-426C-831D-EB650CC9947B} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{CE3D8FC6-E6EA-4F6F-9820-E30AF6714F63} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{837C9597-24D5-460B-963F-E49393F9784B} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal

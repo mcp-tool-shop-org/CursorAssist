@@ -333,7 +333,7 @@ public sealed class EngineThread : IDisposable
     /// Runtime-enforce config parameter bounds. Catches configs that bypass CanonValidator
     /// (e.g., direct construction, deserialization without validation).
     /// </summary>
-    internal static AssistiveConfig ClampConfig(AssistiveConfig config) => config with
+    public static AssistiveConfig ClampConfig(AssistiveConfig config) => config with
     {
         SmoothingMinAlpha = Math.Clamp(config.SmoothingMinAlpha, RuntimeLimits.MinAlpha, RuntimeLimits.MaxAlpha),
         SmoothingMaxAlpha = Math.Clamp(config.SmoothingMaxAlpha, RuntimeLimits.MinAlpha, RuntimeLimits.MaxAlpha),

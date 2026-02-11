@@ -1,4 +1,7 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
+[assembly: InternalsVisibleTo("cursorassist-pilot")]
 
 namespace CursorAssist.Runtime.Windows.Interop;
 
@@ -116,6 +119,10 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool PostMessageW(nint hWnd, uint msg, nuint wParam, nint lParam);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool PostThreadMessage(uint idThread, uint msg, nuint wParam, nint lParam);
 
     // Hotkey modifiers
     internal const uint MOD_CONTROL = 0x0002;

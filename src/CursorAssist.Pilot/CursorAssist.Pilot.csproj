@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>cursorassist-pilot</AssemblyName>
+    <RootNamespace>CursorAssist.Pilot</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CursorAssist.Runtime.Core\CursorAssist.Runtime.Core.csproj" />
+    <ProjectReference Include="..\CursorAssist.Runtime.Windows\CursorAssist.Runtime.Windows.csproj" />
+    <ProjectReference Include="..\CursorAssist.Engine\CursorAssist.Engine.csproj" />
+    <ProjectReference Include="..\CursorAssist.Canon\CursorAssist.Canon.csproj" />
+    <ProjectReference Include="..\CursorAssist.Policy\CursorAssist.Policy.csproj" />
+    <ProjectReference Include="..\CursorAssist.Trace\CursorAssist.Trace.csproj" />
+  </ItemGroup>
+
+</Project>
