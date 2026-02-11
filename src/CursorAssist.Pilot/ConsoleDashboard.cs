@@ -26,6 +26,7 @@ public sealed class ConsoleDashboard : IDisposable
     private readonly string _sessionId;
     private readonly DateTimeOffset _sessionStarted;
     private readonly IKillSwitch _killSwitch;
+    private readonly ITargetProvider? _targetProvider;
 
     private Thread? _thread;
     private volatile bool _running;
@@ -39,13 +40,15 @@ public sealed class ConsoleDashboard : IDisposable
         AssistiveConfig config,
         string sessionId,
         DateTimeOffset sessionStarted,
-        IKillSwitch killSwitch)
+        IKillSwitch killSwitch,
+        ITargetProvider? targetProvider = null)
     {
         _engine = engine;
         _config = config;
         _sessionId = sessionId;
         _sessionStarted = sessionStarted;
         _killSwitch = killSwitch;
+        _targetProvider = targetProvider;
     }
 
     public void Start()
@@ -119,8 +122,9 @@ public sealed class ConsoleDashboard : IDisposable
             $"Config:    Smooth={_config.SmoothingStrength:F2}  MinA={_config.SmoothingMinAlpha:F2}  " +
             $"DZ={_config.DeadzoneRadiusVpx:F2}  PC={_config.PhaseCompensationGainS:F3}");
 
+        int targetCount = _targetProvider?.CurrentTargets.Count ?? 0;
         string line5 = string.Create(c,
-            $"Queues:    Input={_engine.InputQueue.Count}  Injection={_engine.InjectionQueue.Count}");
+            $"Queues:    Input={_engine.InputQueue.Count}  Injection={_engine.InjectionQueue.Count}  Targets={targetCount}");
 
         string line6 = string.Create(c,
             $"Kill:      {killState}  |  Ctrl+Shift+Pause");

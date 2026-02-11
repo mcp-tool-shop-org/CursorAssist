@@ -23,6 +23,7 @@ namespace CursorAssist.Pilot;
 ///     --config &lt;assist.json&gt;    Load AssistiveConfig from file
 ///     --profile &lt;motor.json&gt;    Load MotorProfile, derive config via mapper
 ///     --precision                  Enable dual-pole precision mode
+///     --targets                    Enable UI Automation target awareness
 ///     --trace                     Enable tick-level trace logging
 ///     --session-dir &lt;path&gt;       Output directory (default: ./sessions)
 ///     --export-config &lt;path&gt;     Export active config to JSON file and exit
@@ -63,6 +64,7 @@ public static partial class Program
         string sessionDir = GetArg(args, "--session-dir") ?? "./sessions";
         bool traceEnabled = HasFlag(args, "--trace");
         bool precisionMode = HasFlag(args, "--precision");
+        bool targetsEnabled = HasFlag(args, "--targets");
 
         // ── Resolve config ────────────────────────────────────────
         AssistiveConfig? config = null;
@@ -157,8 +159,13 @@ public static partial class Program
                 metricsSink = new TracingMetricsSink(traceWriter);
         }
 
+        // ── Create target provider (opt-in) ─────────────────────────
+        UIAutomationTargetProvider? targetProvider = null;
+        if (targetsEnabled)
+            targetProvider = new UIAutomationTargetProvider();
+
         // ── Create runtime components ─────────────────────────────
-        var engine = new EngineThread(pipeline, metrics: metricsSink);
+        var engine = new EngineThread(pipeline, metrics: metricsSink, targetProvider: targetProvider);
         using var capture = new MouseCapture(engine);
         using var injector = new MouseInjector(engine);
         using var killSwitch = new HotkeyKillSwitch();
@@ -204,6 +211,8 @@ public static partial class Program
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Precision:    {(config.PrecisionModeEnabled ? "enabled" : "disabled")}"));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"Targets:      {(targetsEnabled ? "UI Automation" : "disabled")}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Trace:        {(traceEnabled ? "enabled" : "disabled")}"));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Cursor init:  ({initX:F0}, {initY:F0})"));
@@ -218,12 +227,13 @@ public static partial class Program
         if (profile is not null)
             engine.UpdateProfile(profile);
 
+        targetProvider?.Start();
         injector.Start();
         killSwitch.Arm();
 
         // ── Start live dashboard ──────────────────────────────────
         using var dashboard = new ConsoleDashboard(
-            engine, config, sessionId, sessionStarted, killSwitch);
+            engine, config, sessionId, sessionStarted, killSwitch, targetProvider);
         dashboard.Start();
 
         // ── Start mouse capture + message pump on main thread ─────
@@ -246,6 +256,8 @@ public static partial class Program
 
         capture.Stop();
         injector.Stop();
+        targetProvider?.Stop();
+        targetProvider?.Dispose();
         engine.Disable();
         killSwitch.Disarm();
 
@@ -309,6 +321,7 @@ public static partial class Program
         Console.WriteLine("  --profile <motor.json>    Load MotorProfile, derive config via mapper");
         Console.WriteLine("  --safe-default <level>    Use built-in safe default (minimal|moderate)");
         Console.WriteLine("  --precision               Enable dual-pole precision mode (−40 dB/decade)");
+        Console.WriteLine("  --targets                 Enable UI Automation target awareness");
         Console.WriteLine("  --trace                   Enable tick-level trace logging");
         Console.WriteLine("  --session-dir <path>      Output directory (default: ./sessions)");
         Console.WriteLine("  --export-config <path>    Export active config to JSON file and exit");

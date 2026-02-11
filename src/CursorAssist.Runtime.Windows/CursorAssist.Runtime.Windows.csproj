@@ -1,9 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Windows-only: platform adapter for Raw Input + SendInput -->
+    <!-- Windows-only: platform adapter for Raw Input + SendInput + UI Automation -->
     <TargetFramework>net10.0-windows</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- UseWindowsForms pulls in the WindowsDesktop shared framework,
+         which includes UIAutomationClient + UIAutomationTypes assemblies.
+         We don't use WinForms itself — only the UIA assemblies. -->
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>

@@ -177,6 +177,47 @@ public class TargetMagnetismTests
         Assert.Equal(r1.Y, r2.Y);
     }
 
+    [Fact]
+    public void Pipeline_WithTargets_MagnetismEngages()
+    {
+        // Full pipeline with synthetic target: verify that magnetism pulls
+        // the cursor toward the target when within radius.
+        var config = new AssistiveConfig
+        {
+            SourceProfileId = "pipeline-target-test",
+            MagnetismRadiusVpx = 100f,
+            MagnetismStrength = 0.8f,
+            MagnetismHysteresisVpx = 20f,
+            SnapRadiusVpx = 5f
+        };
+
+        // Build full pipeline (SoftDeadzone → Smoothing → PhaseComp → Intent → Magnetism)
+        var pipeline = new TransformPipeline()
+            .Add(new SoftDeadzoneTransform())
+            .Add(new SmoothingTransform())
+            .Add(new PhaseCompensationTransform())
+            .Add(new DirectionalIntentTransform())
+            .Add(new TargetMagnetismTransform());
+
+        var deterministicPipeline = new DeterministicPipeline(pipeline);
+
+        // Cursor at (550, 300), target at (500, 300) — 50px within 100px radius
+        var input = new InputSample(550f, 300f, 0f, 0f, false, false, 0);
+        var ctx = new TransformContext
+        {
+            Tick = 0,
+            Dt = 1f / 60f,
+            Targets = [Target],
+            Config = config
+        };
+
+        var result = deterministicPipeline.FixedStep(in input, ctx);
+
+        // Magnetism should pull X toward 500 (the target center)
+        Assert.True(result.FinalCursor.X < 550f,
+            $"Full pipeline with target should pull X ({result.FinalCursor.X:F1}) toward target (500)");
+    }
+
     private static TransformContext MakeContext(float cursorX, float cursorY) => new()
     {
         Tick = 0,

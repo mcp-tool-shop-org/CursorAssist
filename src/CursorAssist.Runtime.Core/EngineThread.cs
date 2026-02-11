@@ -28,6 +28,7 @@ public sealed class EngineThread : IDisposable
 
     private readonly TransformPipeline _pipeline;
     private readonly DeterministicPipeline _engine;
+    private readonly ITargetProvider? _targetProvider;
     private readonly int _fixedHz;
     private readonly float _fixedDt;
     private readonly double _fixedDtD;
@@ -60,10 +61,12 @@ public sealed class EngineThread : IDisposable
     public EngineThread(
         TransformPipeline pipeline,
         IMetricsSink? metrics = null,
+        ITargetProvider? targetProvider = null,
         int fixedHz = 60,
         int maxStepsPerFrame = 5)
     {
         _pipeline = pipeline;
+        _targetProvider = targetProvider;
         _fixedHz = fixedHz;
         _fixedDt = 1f / fixedHz;
         _fixedDtD = 1.0 / fixedHz;
@@ -242,6 +245,9 @@ public sealed class EngineThread : IDisposable
                 _pendingConfig = null;
             }
 
+            // Read targets from provider at frame boundary (volatile read, zero-alloc)
+            var targets = _targetProvider?.CurrentTargets ?? (IReadOnlyList<TargetInfo>)[];
+
             // Aggregate all raw input received since last tick
             float aggDx = 0f, aggDy = 0f;
             bool primary = _cursor.PrimaryDown;
@@ -270,7 +276,8 @@ public sealed class EngineThread : IDisposable
                     Tick = _engine.CurrentTick,
                     Dt = _fixedDt,
                     Config = _activeConfig,
-                    Profile = _activeProfile
+                    Profile = _activeProfile,
+                    Targets = targets
                 };
 
                 var result = _engine.FixedStep(in input, ctx);
