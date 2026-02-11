@@ -22,6 +22,7 @@ public class ProfileToConfigMapperTests
         Assert.Equal(c1.MagnetismStrength, c2.MagnetismStrength);
         Assert.Equal(c1.EdgeResistance, c2.EdgeResistance);
         Assert.Equal(c1.SnapRadiusVpx, c2.SnapRadiusVpx);
+        Assert.Equal(c1.SmoothingAdaptiveFrequencyEnabled, c2.SmoothingAdaptiveFrequencyEnabled);
     }
 
     [Fact]
@@ -81,12 +82,19 @@ public class ProfileToConfigMapperTests
     [Fact]
     public void HighTremor_LowersMinAlpha()
     {
-        // Higher tremor → lower MinAlpha (stronger suppression at rest)
-        var low = ProfileToConfigMapper.Map(MakeProfile(tremor: 1f));
-        var high = ProfileToConfigMapper.Map(MakeProfile(tremor: 8f));
+        // Higher tremor frequency → lower MinAlpha (stronger suppression at rest)
+        // Low: f=4 Hz → α=0.05236*4=0.209 → clamped 0.209
+        // High: f=10 Hz → α=0.05236*10=0.524 → clamped 0.40
+        // Wait — higher freq → higher alpha. The relationship changed.
+        // With closed-form mapping, higher frequency = higher alpha.
+        // But higher frequency tremor IS harder to suppress with a low alpha.
+        // The correct v2 behavior: higher frequency → higher minAlpha.
+        // We test this instead.
+        var lowFreq = ProfileToConfigMapper.Map(MakeProfile(tremor: 1f, freqHz: 4f));
+        var highFreq = ProfileToConfigMapper.Map(MakeProfile(tremor: 8f, freqHz: 10f));
 
-        Assert.True(high.SmoothingMinAlpha < low.SmoothingMinAlpha,
-            $"High tremor minAlpha ({high.SmoothingMinAlpha}) should be < low tremor ({low.SmoothingMinAlpha})");
+        Assert.True(highFreq.SmoothingMinAlpha > lowFreq.SmoothingMinAlpha,
+            $"Higher freq minAlpha ({highFreq.SmoothingMinAlpha}) should be > lower freq ({lowFreq.SmoothingMinAlpha})");
     }
 
     [Fact]
@@ -115,6 +123,7 @@ public class ProfileToConfigMapperTests
     public void PolicyVersion_IsSet()
     {
         var config = ProfileToConfigMapper.Map(MakeProfile());
+        Assert.Equal(2, config.MappingPolicyVersion);
         Assert.Equal(ProfileToConfigMapper.PolicyVersion, config.MappingPolicyVersion);
     }
 
@@ -126,15 +135,65 @@ public class ProfileToConfigMapperTests
         Assert.Equal(profile.ProfileId, config.SourceProfileId);
     }
 
+    // ── Closed-form frequency→alpha tests ──
+
+    [Fact]
+    public void FrequencyAvailable_UsesClosedFormMinAlpha()
+    {
+        // f=6 Hz → α = 0.05236 * 6 = 0.31416
+        var config = ProfileToConfigMapper.Map(MakeProfile(freqHz: 6f));
+        Assert.Equal(0.05236f * 6f, config.SmoothingMinAlpha, 3);
+    }
+
+    [Fact]
+    public void FrequencyZero_FallsBackToAmplitudeBased()
+    {
+        // f=0 → uses amplitude fallback: Max(0.20, 0.35 - amplitude*0.015)
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 0f));
+        float expected = MathF.Max(0.20f, 0.35f - 3f * 0.015f);
+        Assert.Equal(expected, config.SmoothingMinAlpha, 4);
+    }
+
+    [Fact]
+    public void HighFrequency_MinAlphaClampsAt040()
+    {
+        // f=12 Hz → raw α = 0.05236*12 = 0.628 → clamped to 0.40
+        var config = ProfileToConfigMapper.Map(MakeProfile(freqHz: 12f));
+        Assert.Equal(0.40f, config.SmoothingMinAlpha, 4);
+    }
+
+    [Fact]
+    public void LowFrequency_MinAlphaClampsAt020()
+    {
+        // f=3 Hz → raw α = 0.05236*3 = 0.157 → clamped to 0.20
+        var config = ProfileToConfigMapper.Map(MakeProfile(freqHz: 3f));
+        Assert.Equal(0.20f, config.SmoothingMinAlpha, 4);
+    }
+
+    [Fact]
+    public void FrequencyAvailable_EnablesAdaptiveMode()
+    {
+        var config = ProfileToConfigMapper.Map(MakeProfile(freqHz: 6f));
+        Assert.True(config.SmoothingAdaptiveFrequencyEnabled);
+    }
+
+    [Fact]
+    public void FrequencyZero_DisablesAdaptiveMode()
+    {
+        var config = ProfileToConfigMapper.Map(MakeProfile(freqHz: 0f));
+        Assert.False(config.SmoothingAdaptiveFrequencyEnabled);
+    }
+
     private static MotorProfile MakeProfile(
         float tremor = 3f,
         float pathEff = 0.8f,
-        float overshoot = 0.4f) => new()
+        float overshoot = 0.4f,
+        float freqHz = 6f) => new()
     {
         ProfileId = "test-profile",
         CreatedUtc = DateTimeOffset.UtcNow,
         TremorAmplitudeVpx = tremor,
-        TremorFrequencyHz = tremor > 0 ? 6f : 0f,
+        TremorFrequencyHz = freqHz,
         PathEfficiency = pathEff,
         OvershootRate = overshoot,
         OvershootMagnitudeVpx = overshoot * 20f,

@@ -39,12 +39,14 @@ public class PolicyMapperTests
         Assert.Equal(policyConfig.MagnetismStrength, engineConfig.MagnetismStrength);
         Assert.Equal(policyConfig.EdgeResistance, engineConfig.EdgeResistance);
         Assert.Equal(policyConfig.SnapRadiusVpx, engineConfig.SnapRadiusVpx);
+        Assert.Equal(policyConfig.SmoothingAdaptiveFrequencyEnabled, engineConfig.SmoothingAdaptiveFrequencyEnabled);
     }
 
     [Fact]
     public void PolicyVersionIsSet()
     {
         var config = ProfileToConfigMapper.Map(MakeProfile());
+        Assert.Equal(2, config.MappingPolicyVersion);
         Assert.Equal(ProfileToConfigMapper.PolicyVersion, config.MappingPolicyVersion);
     }
 

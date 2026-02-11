@@ -77,6 +77,16 @@ public sealed record AssistiveConfig
     [JsonPropertyName("smoothingVelocityHigh")]
     public float SmoothingVelocityHigh { get; init; } = 8f;
 
+    /// <summary>
+    /// When true, SmoothingTransform estimates tremor frequency in real-time
+    /// via zero-crossing rate and dynamically adjusts MinAlpha using the
+    /// closed-form law: α_min = Clamp(2πk/Fs × f_est, 0.20, 0.40).
+    /// When false, uses the static MinAlpha from the mapper.
+    /// Default false for deterministic benchmarking with fixed parameters.
+    /// </summary>
+    [JsonPropertyName("smoothingAdaptiveFrequencyEnabled")]
+    public bool SmoothingAdaptiveFrequencyEnabled { get; init; }
+
     /// <summary>Prediction horizon in seconds. 0 = no prediction.</summary>
     [JsonPropertyName("predictionHorizonS")]
     public float PredictionHorizonS { get; init; }

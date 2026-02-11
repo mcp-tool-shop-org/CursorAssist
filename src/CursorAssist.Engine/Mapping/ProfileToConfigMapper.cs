@@ -8,11 +8,18 @@ namespace CursorAssist.Engine.Mapping;
 /// </summary>
 public static class ProfileToConfigMapper
 {
-    public const int PolicyVersion = 1;
+    public const int PolicyVersion = 2;
+
+    // Closed-form frequency → alpha mapping constant:
+    //   α_min = Clamp(FreqToAlphaK × f_tremor, 0.20, 0.40)
+    //   Derivation: fc = k × f_tremor (cutoff at half the tremor frequency)
+    //   α = 2π × fc / Fs = 2π × k × f_tremor / Fs
+    //   For k=0.5, Fs=60: FreqToAlphaK = 2π × 0.5 / 60 ≈ 0.05236
+    private const float FreqToAlphaK = 0.05236f;
 
     /// <summary>
     /// Map a motor profile to an assistive configuration.
-    /// v1 policy: linear scaling from profile metrics.
+    /// v2 policy: closed-form frequency→alpha when available, amplitude fallback.
     /// </summary>
     public static AssistiveConfig Map(MotorProfile profile)
     {
@@ -24,9 +31,21 @@ public static class ProfileToConfigMapper
         //   α=0.20 → fc≈1.9Hz, α=0.35 → fc≈3.3Hz (strong suppression band)
         //   α=0.85 → fc≈8.1Hz, α=0.95 → fc≈9.1Hz (near pass-through)
 
-        // MinAlpha: lower for severe tremor (deeper into 2–3 Hz cutoff)
-        // Range: [0.20, 0.35] — clamp to never go below fc≈1.9 Hz
-        float minAlpha = MathF.Max(0.20f, 0.35f - profile.TremorAmplitudeVpx * 0.015f);
+        // MinAlpha: closed-form from tremor frequency when available
+        //   α_min places -3dB cutoff at half the tremor frequency (k=0.5)
+        //   e.g. f_tremor=6 Hz → fc=3 Hz → α≈0.314
+        //   Clamped to [0.20, 0.40] to stay in safe suppression band
+        float minAlpha;
+        bool hasFrequency = profile.TremorFrequencyHz > 0f;
+        if (hasFrequency)
+        {
+            minAlpha = Math.Clamp(FreqToAlphaK * profile.TremorFrequencyHz, 0.20f, 0.40f);
+        }
+        else
+        {
+            // Fallback: amplitude-based (for profiles without frequency measurement)
+            minAlpha = MathF.Max(0.20f, 0.35f - profile.TremorAmplitudeVpx * 0.015f);
+        }
 
         // MaxAlpha: high to preserve responsiveness; slightly lower for poor path efficiency
         float maxAlpha = MathF.Min(0.95f, 0.85f + profile.PathEfficiency * 0.1f);
@@ -69,6 +88,7 @@ public static class ProfileToConfigMapper
             SmoothingMaxAlpha = maxAlpha,
             SmoothingVelocityLow = vLow,
             SmoothingVelocityHigh = vHigh,
+            SmoothingAdaptiveFrequencyEnabled = hasFrequency,
             PredictionHorizonS = prediction,
             MagnetismRadiusVpx = magnetismRadius,
             MagnetismStrength = magnetismStrength,
