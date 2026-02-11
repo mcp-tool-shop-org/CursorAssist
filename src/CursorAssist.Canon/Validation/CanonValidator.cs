@@ -77,6 +77,15 @@ public static class CanonValidator
         if (config.DeadzoneRadiusVpx < 0f)
             errors.Add($"DeadzoneRadiusVpx must be >= 0; got {config.DeadzoneRadiusVpx}.");
 
+        if (config.PhaseCompensationGainS is < 0f or > 0.1f)
+            errors.Add($"PhaseCompensationGainS must be [0, 0.1]; got {config.PhaseCompensationGainS}. Above 100ms compensation risks overshoot.");
+
+        if (config.IntentBoostStrength is < 0f or > 1f)
+            errors.Add($"IntentBoostStrength must be [0, 1]; got {config.IntentBoostStrength}.");
+
+        if (config.IntentCoherenceThreshold is < 0.5f or > 1f)
+            errors.Add($"IntentCoherenceThreshold must be [0.5, 1]; got {config.IntentCoherenceThreshold}.");
+
         return new ValidationResult(errors);
     }
 

@@ -22,6 +22,9 @@ public class PolicyMapperTests
         Assert.Equal(c1.MagnetismStrength, c2.MagnetismStrength);
         Assert.Equal(c1.DeadzoneRadiusVpx, c2.DeadzoneRadiusVpx);
         Assert.Equal(c1.SmoothingDualPoleEnabled, c2.SmoothingDualPoleEnabled);
+        Assert.Equal(c1.PhaseCompensationGainS, c2.PhaseCompensationGainS);
+        Assert.Equal(c1.IntentBoostStrength, c2.IntentBoostStrength);
+        Assert.Equal(c1.IntentCoherenceThreshold, c2.IntentCoherenceThreshold);
     }
 
     [Fact]
@@ -44,13 +47,16 @@ public class PolicyMapperTests
         Assert.Equal(policyConfig.SmoothingAdaptiveFrequencyEnabled, engineConfig.SmoothingAdaptiveFrequencyEnabled);
         Assert.Equal(policyConfig.DeadzoneRadiusVpx, engineConfig.DeadzoneRadiusVpx);
         Assert.Equal(policyConfig.SmoothingDualPoleEnabled, engineConfig.SmoothingDualPoleEnabled);
+        Assert.Equal(policyConfig.PhaseCompensationGainS, engineConfig.PhaseCompensationGainS);
+        Assert.Equal(policyConfig.IntentBoostStrength, engineConfig.IntentBoostStrength);
+        Assert.Equal(policyConfig.IntentCoherenceThreshold, engineConfig.IntentCoherenceThreshold);
     }
 
     [Fact]
     public void PolicyVersionIsSet()
     {
         var config = ProfileToConfigMapper.Map(MakeProfile());
-        Assert.Equal(2, config.MappingPolicyVersion);
+        Assert.Equal(3, config.MappingPolicyVersion);
         Assert.Equal(ProfileToConfigMapper.PolicyVersion, config.MappingPolicyVersion);
     }
 

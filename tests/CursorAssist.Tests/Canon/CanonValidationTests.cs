@@ -121,14 +121,61 @@ public class CanonValidationTests
         SampleCount = 50
     };
 
+    // ── Phase compensation validation ──
+
+    [Fact]
+    public void PhaseCompGainS_Negative_Fails()
+    {
+        var config = MakeValidConfig() with { PhaseCompensationGainS = -0.01f };
+        var result = CanonValidator.Validate(config);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.Contains("PhaseCompensationGainS"));
+    }
+
+    [Fact]
+    public void PhaseCompGainS_TooHigh_Fails()
+    {
+        var config = MakeValidConfig() with { PhaseCompensationGainS = 0.2f };
+        var result = CanonValidator.Validate(config);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.Contains("PhaseCompensationGainS"));
+    }
+
+    // ── Intent boost validation ──
+
+    [Fact]
+    public void IntentBoostStrength_OutOfRange_Fails()
+    {
+        var config = MakeValidConfig() with { IntentBoostStrength = 1.5f };
+        var result = CanonValidator.Validate(config);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.Contains("IntentBoostStrength"));
+    }
+
+    [Fact]
+    public void IntentCoherenceThreshold_TooLow_Fails()
+    {
+        var config = MakeValidConfig() with { IntentCoherenceThreshold = 0.3f };
+        var result = CanonValidator.Validate(config);
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.Contains("IntentCoherenceThreshold"));
+    }
+
     private static AssistiveConfig MakeValidConfig() => new()
     {
         SourceProfileId = "test-profile",
         SmoothingStrength = 0.3f,
+        SmoothingMinAlpha = 0.20f,
+        SmoothingMaxAlpha = 0.90f,
+        SmoothingVelocityLow = 0.5f,
+        SmoothingVelocityHigh = 10f,
         MagnetismRadiusVpx = 80f,
         MagnetismStrength = 0.5f,
         MagnetismHysteresisVpx = 12f,
         EdgeResistance = 0.1f,
-        SnapRadiusVpx = 3f
+        SnapRadiusVpx = 3f,
+        PhaseCompensationGainS = 0.005f,
+        IntentBoostStrength = 0.4f,
+        IntentCoherenceThreshold = 0.8f
     };
 }

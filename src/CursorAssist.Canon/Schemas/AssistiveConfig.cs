@@ -103,8 +103,10 @@ public sealed record AssistiveConfig
     //   r ≫ D → r' ≈ r (pass-through)
     //   Continuous, differentiable, no hard edge.
     //
-    // D derived from TremorAmplitudeVpx: D = k × A, k=1.0
-    // Pipeline: Raw → SoftDeadzone → SmoothingTransform → Magnetism
+    // D derived from TremorAmplitudeVpx and TremorFrequencyHz:
+    //   D = k × A × √(f / f_ref), k=0.8, f_ref=8 Hz
+    //   When f=0 (no measurement): D = k × A (amplitude-only fallback)
+    // Pipeline: Raw → SoftDeadzone → SmoothingTransform → PhaseComp → Intent → Magnetism
 
     /// <summary>
     /// Quadratic deadzone compression radius in virtual pixels.
@@ -114,6 +116,47 @@ public sealed record AssistiveConfig
     /// </summary>
     [JsonPropertyName("deadzoneRadiusVpx")]
     public float DeadzoneRadiusVpx { get; init; }
+
+    // ── Phase compensation (EMA lag offset) ──────────────────
+    //
+    // Feed-forward velocity projection to offset EMA-induced phase lag.
+    //   τ ≈ (1 − α) / α / Fs
+    //   x_comp = x + gain_seconds × Dx × Fs
+    //
+    // gain is in seconds for narratability ("7ms lag compensation").
+
+    /// <summary>
+    /// Feed-forward lag compensation gain in seconds. 0 = disabled.
+    /// Derived from average expected EMA alpha and a conservative 0.7× multiplier.
+    /// Applied after SmoothingTransform: x_comp = x + gain × Dx × 60.
+    /// Range [0, 0.1]. Typical: 0.007–0.015s (7–15ms compensation).
+    /// </summary>
+    [JsonPropertyName("phaseCompensationGainS")]
+    public float PhaseCompensationGainS { get; init; }
+
+    // ── Directional intent boost ─────────────────────────────
+    //
+    // Detects sustained intentional movement via cosine similarity
+    // of consecutive velocity vectors. When coherence exceeds a
+    // threshold, adds a velocity-proportional displacement boost
+    // in the detected direction of motion.
+
+    /// <summary>
+    /// Directional intent boost strength [0, 1]. 0 = disabled.
+    /// When > 0, detects sustained directional coherence and boosts
+    /// cursor displacement in the direction of motion.
+    /// Derived from PathEfficiency. Range [0, 1].
+    /// </summary>
+    [JsonPropertyName("intentBoostStrength")]
+    public float IntentBoostStrength { get; init; }
+
+    /// <summary>
+    /// Cosine similarity threshold for directional intent detection.
+    /// Below this threshold, no boost is applied.
+    /// Default 0.8. Range [0.5, 1.0].
+    /// </summary>
+    [JsonPropertyName("intentCoherenceThreshold")]
+    public float IntentCoherenceThreshold { get; init; } = 0.8f;
 
     /// <summary>Prediction horizon in seconds. 0 = no prediction.</summary>
     [JsonPropertyName("predictionHorizonS")]

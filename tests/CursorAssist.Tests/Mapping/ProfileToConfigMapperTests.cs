@@ -25,6 +25,9 @@ public class ProfileToConfigMapperTests
         Assert.Equal(c1.SmoothingAdaptiveFrequencyEnabled, c2.SmoothingAdaptiveFrequencyEnabled);
         Assert.Equal(c1.DeadzoneRadiusVpx, c2.DeadzoneRadiusVpx);
         Assert.Equal(c1.SmoothingDualPoleEnabled, c2.SmoothingDualPoleEnabled);
+        Assert.Equal(c1.PhaseCompensationGainS, c2.PhaseCompensationGainS);
+        Assert.Equal(c1.IntentBoostStrength, c2.IntentBoostStrength);
+        Assert.Equal(c1.IntentCoherenceThreshold, c2.IntentCoherenceThreshold);
     }
 
     [Fact]
@@ -126,7 +129,7 @@ public class ProfileToConfigMapperTests
     public void PolicyVersion_IsSet()
     {
         var config = ProfileToConfigMapper.Map(MakeProfile());
-        Assert.Equal(2, config.MappingPolicyVersion);
+        Assert.Equal(3, config.MappingPolicyVersion);
         Assert.Equal(ProfileToConfigMapper.PolicyVersion, config.MappingPolicyVersion);
     }
 
@@ -192,9 +195,10 @@ public class ProfileToConfigMapperTests
     [Fact]
     public void SignificantTremor_SetsDeadzoneRadius()
     {
-        // amplitude=3 (> 0.5) → D = Clamp(3*1.0, 0.2, 3.0) = 3.0
+        // amplitude=3, freq=6 Hz → D = 0.8 × 3 × √(6/8) = 2.4 × √0.75 ≈ 2.078
         var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f));
-        Assert.Equal(3.0f, config.DeadzoneRadiusVpx, 4);
+        float expected = Math.Clamp(0.8f * 3f * MathF.Sqrt(6f / 8f), 0.2f, 3.0f);
+        Assert.Equal(expected, config.DeadzoneRadiusVpx, 3);
     }
 
     [Fact]
@@ -219,6 +223,94 @@ public class ProfileToConfigMapperTests
         // amplitude=2 (≤ 4) → dualPole = false
         var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 2f));
         Assert.False(config.SmoothingDualPoleEnabled);
+    }
+
+    // ── Frequency-weighted deadzone tests (v3) ──
+
+    [Fact]
+    public void FreqWeightedDeadzone_HigherFreq_LargerD()
+    {
+        // Same amplitude, higher frequency → larger deadzone
+        var low = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 4f));
+        var high = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 10f));
+
+        Assert.True(high.DeadzoneRadiusVpx > low.DeadzoneRadiusVpx,
+            $"Higher freq DZ ({high.DeadzoneRadiusVpx:F4}) should be > lower freq ({low.DeadzoneRadiusVpx:F4})");
+    }
+
+    [Fact]
+    public void FreqWeightedDeadzone_NoFrequency_AmplitudeOnly()
+    {
+        // f=0 → freqWeight=1.0 → D = 0.8 × A
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f, freqHz: 0f));
+        float expected = Math.Clamp(0.8f * 3f * 1f, 0.2f, 3.0f); // 2.4
+        Assert.Equal(expected, config.DeadzoneRadiusVpx, 3);
+    }
+
+    [Fact]
+    public void FreqWeightedDeadzone_ExactValue()
+    {
+        // A=2.5, f=8 Hz → D = 0.8 × 2.5 × √(8/8) = 0.8 × 2.5 × 1.0 = 2.0
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 2.5f, freqHz: 8f));
+        Assert.Equal(2.0f, config.DeadzoneRadiusVpx, 3);
+    }
+
+    // ── Phase compensation tests (v3) ──
+
+    [Fact]
+    public void PhaseComp_DerivedFromAlpha()
+    {
+        // tremor=3 (smoothing=0.3 ≥ 0.1) → phase comp enabled
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 3f));
+
+        // avgAlpha = (minAlpha + maxAlpha) / 2
+        // lagS = (1 - avgAlpha) / avgAlpha / 60
+        // gain = lagS * 0.7
+        Assert.True(config.PhaseCompensationGainS > 0f,
+            "Phase comp should be enabled for moderate tremor");
+        Assert.True(config.PhaseCompensationGainS <= 0.1f,
+            $"Phase comp gain ({config.PhaseCompensationGainS:F6}) should be ≤ 0.1");
+    }
+
+    [Fact]
+    public void PhaseComp_LowSmoothing_Disabled()
+    {
+        // tremor=0.5 → smoothing = 0.5/10 = 0.05 < 0.1 → disabled
+        var config = ProfileToConfigMapper.Map(MakeProfile(tremor: 0.5f));
+        Assert.Equal(0f, config.PhaseCompensationGainS, 6);
+    }
+
+    // ── Intent boost tests (v3) ──
+
+    [Fact]
+    public void IntentBoost_GoodPathEfficiency_Enabled()
+    {
+        // pathEff=0.9 > 0.6 → strength = Clamp01(0.9 - 0.4) = 0.5
+        var config = ProfileToConfigMapper.Map(MakeProfile(pathEff: 0.9f));
+        Assert.Equal(0.5f, config.IntentBoostStrength, 4);
+    }
+
+    [Fact]
+    public void IntentBoost_PoorPathEfficiency_Disabled()
+    {
+        // pathEff=0.5 ≤ 0.6 → strength = 0
+        var config = ProfileToConfigMapper.Map(MakeProfile(pathEff: 0.5f));
+        Assert.Equal(0f, config.IntentBoostStrength, 4);
+    }
+
+    [Fact]
+    public void IntentBoost_ExactValue()
+    {
+        // pathEff=0.8 → strength = Clamp01(0.8 - 0.4) = 0.4
+        var config = ProfileToConfigMapper.Map(MakeProfile(pathEff: 0.8f));
+        Assert.Equal(0.4f, config.IntentBoostStrength, 4);
+    }
+
+    [Fact]
+    public void IntentCoherenceThreshold_AlwaysSet()
+    {
+        var config = ProfileToConfigMapper.Map(MakeProfile());
+        Assert.Equal(0.8f, config.IntentCoherenceThreshold, 4);
     }
 
     private static MotorProfile MakeProfile(

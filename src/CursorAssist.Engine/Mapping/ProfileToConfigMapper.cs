@@ -8,7 +8,7 @@ namespace CursorAssist.Engine.Mapping;
 /// </summary>
 public static class ProfileToConfigMapper
 {
-    public const int PolicyVersion = 2;
+    public const int PolicyVersion = 3;
 
     // Closed-form frequency → alpha mapping constant:
     //   α_min = Clamp(FreqToAlphaK × f_tremor, 0.20, 0.40)
@@ -19,7 +19,7 @@ public static class ProfileToConfigMapper
 
     /// <summary>
     /// Map a motor profile to an assistive configuration.
-    /// v2 policy: closed-form frequency→alpha when available, amplitude fallback.
+    /// v3 policy: freq-weighted deadzone, phase compensation, directional intent.
     /// </summary>
     public static AssistiveConfig Map(MotorProfile profile)
     {
@@ -79,15 +79,51 @@ public static class ProfileToConfigMapper
         // Snap radius: only for significant tremor
         float snapRadius = profile.TremorAmplitudeVpx > 3f ? 5f : 0f;
 
-        // Soft deadzone: D = k × TremorAmplitudeVpx, clamped [0.2, 3.0]
+        // Soft deadzone: D = k × A × √(f / f_ref)
+        // k=0.8, f_ref=8 Hz. Frequency weighting: higher freq → more destabilizing
+        // √ gives gentle increase (linear would over-penalize)
+        // When f=0 (no measurement): fall back to D = k × A (amplitude-only)
         // Disable for negligible tremor (< 0.5 vpx)
-        float deadzoneRadius = profile.TremorAmplitudeVpx > 0.5f
-            ? Math.Clamp(profile.TremorAmplitudeVpx * 1.0f, 0.2f, 3.0f)
-            : 0f;
+        float deadzoneRadius;
+        if (profile.TremorAmplitudeVpx > 0.5f)
+        {
+            const float kDz = 0.8f;
+            const float fRef = 8f;
+            float freqWeight = profile.TremorFrequencyHz > 0f
+                ? MathF.Sqrt(profile.TremorFrequencyHz / fRef)
+                : 1f;
+            deadzoneRadius = Math.Clamp(kDz * profile.TremorAmplitudeVpx * freqWeight, 0.2f, 3.0f);
+        }
+        else
+        {
+            deadzoneRadius = 0f;
+        }
 
         // Dual-pole: enable for significant tremor amplitude (> 4 vpx)
         // Provides −40 dB/decade at low velocity for precision modes
         bool dualPole = profile.TremorAmplitudeVpx > 4f;
+
+        // Phase compensation: offset EMA lag with feed-forward velocity projection
+        // τ_avg = (1 − avgAlpha) / avgAlpha / Fs
+        // Conservative gain: 0.7× to avoid overshoot
+        float phaseCompGainS;
+        if (smoothing >= 0.1f)
+        {
+            float avgAlpha = (minAlpha + maxAlpha) / 2f;
+            float lagS = (1f - avgAlpha) / avgAlpha / 60f;
+            phaseCompGainS = lagS * 0.7f;
+        }
+        else
+        {
+            phaseCompGainS = 0f; // Negligible smoothing — no lag to compensate
+        }
+
+        // Directional intent boost: only for users with reasonable path efficiency
+        // Poor path efficiency + boost = amplified errors
+        float intentBoostStrength = profile.PathEfficiency > 0.6f
+            ? Clamp01(profile.PathEfficiency - 0.4f)
+            : 0f;
+        float intentCoherenceThreshold = 0.8f;
 
         return new AssistiveConfig
         {
@@ -101,6 +137,9 @@ public static class ProfileToConfigMapper
             SmoothingAdaptiveFrequencyEnabled = hasFrequency,
             SmoothingDualPoleEnabled = dualPole,
             DeadzoneRadiusVpx = deadzoneRadius,
+            PhaseCompensationGainS = phaseCompGainS,
+            IntentBoostStrength = intentBoostStrength,
+            IntentCoherenceThreshold = intentCoherenceThreshold,
             PredictionHorizonS = prediction,
             MagnetismRadiusVpx = magnetismRadius,
             MagnetismStrength = magnetismStrength,
