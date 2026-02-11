@@ -96,8 +96,8 @@ public sealed class MouseCapture : IDisposable
                 dy = hookStruct.Pt.Y - _lastY;
             }
 
-            // Loop prevention layer 2: check against recent injections
-            if (_engine.WasRecentlyInjected(dx, dy))
+            // Loop prevention layer 2: check against recent injections (value + time window)
+            if (_engine.WasRecentlyInjected(dx, dy, Stopwatch.GetTimestamp()))
             {
                 _lastX = hookStruct.Pt.X;
                 _lastY = hookStruct.Pt.Y;

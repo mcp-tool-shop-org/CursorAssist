@@ -1,8 +1,11 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using CursorAssist.Canon.Schemas;
 using CursorAssist.Engine.Core;
 using CursorAssist.Engine.Metrics;
+
+[assembly: InternalsVisibleTo("CursorAssist.Tests")]
 
 namespace CursorAssist.Runtime.Core;
 
@@ -39,8 +42,12 @@ public sealed class EngineThread : IDisposable
     private volatile bool _running;
     private bool _disposed;
 
-    // Injection tagging: ring buffer of last N injected deltas
-    private readonly (float dx, float dy)[] _injectedRing = new (float, float)[8];
+    // Injection tagging: ring buffer of last N injected deltas with timestamps.
+    // The time window prevents stale entries from false-matching legitimate user deltas.
+    private const int InjectedRingSize = 8;
+    private static readonly long EchoWindowTicks = Stopwatch.Frequency / 20; // 50ms
+    private readonly (float dx, float dy, long timestamp)[] _injectedRing =
+        new (float, float, long)[InjectedRingSize];
     private int _injectedRingIdx;
 
     public ConcurrentQueue<RawInputEvent> InputQueue => _inputQueue;
@@ -116,16 +123,30 @@ public sealed class EngineThread : IDisposable
 
     /// <summary>
     /// Check if a delta was recently injected (loop prevention guard layer 2).
+    /// Dual check: delta values must match within tolerance AND the entry must be
+    /// within the echo time window (50ms). Entries older than the window are ignored
+    /// to prevent stale ring buffer entries from false-matching legitimate user deltas.
     /// </summary>
-    public bool WasRecentlyInjected(float dx, float dy, float tolerance = 0.01f)
+    public bool WasRecentlyInjected(float dx, float dy, long nowTicks, float tolerance = 0.01f)
     {
         for (int i = 0; i < _injectedRing.Length; i++)
         {
-            var (rx, ry) = _injectedRing[i];
+            var (rx, ry, ts) = _injectedRing[i];
+            if (ts == 0) continue; // Uninitialized slot
+            if (nowTicks - ts > EchoWindowTicks) continue; // Outside time window
             if (MathF.Abs(rx - dx) < tolerance && MathF.Abs(ry - dy) < tolerance)
                 return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Record an injected delta in the ring buffer for echo guard matching.
+    /// </summary>
+    internal void RecordInjectedDelta(float dx, float dy, long timestampTicks)
+    {
+        _injectedRing[_injectedRingIdx % InjectedRingSize] = (dx, dy, timestampTicks);
+        _injectedRingIdx++;
     }
 
     /// <summary>
@@ -241,9 +262,8 @@ public sealed class EngineThread : IDisposable
                 {
                     _injectionQueue.Enqueue(new AssistedDelta(assistedDx, assistedDy, _engine.CurrentTick));
 
-                    // Record in ring buffer for loop prevention
-                    _injectedRing[_injectedRingIdx % _injectedRing.Length] = (assistedDx, assistedDy);
-                    _injectedRingIdx++;
+                    // Record in ring buffer for echo guard (loop prevention layer 2)
+                    RecordInjectedDelta(assistedDx, assistedDy, Stopwatch.GetTimestamp());
                 }
 
                 // Only apply aggregated deltas on first step; subsequent steps use zero delta
