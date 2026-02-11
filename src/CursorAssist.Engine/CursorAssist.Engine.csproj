@@ -4,6 +4,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CursorAssist.Canon\CursorAssist.Canon.csproj" />
+    <ProjectReference Include="..\CursorAssist.Trace\CursorAssist.Trace.csproj" />
   </ItemGroup>
 
 </Project>

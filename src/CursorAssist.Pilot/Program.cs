@@ -4,6 +4,7 @@ using System.Text.Json;
 using CursorAssist.Canon.Schemas;
 using CursorAssist.Engine.Core;
 using CursorAssist.Engine.Mapping;
+using CursorAssist.Engine.Metrics;
 using CursorAssist.Engine.Transforms;
 using CursorAssist.Runtime.Core;
 using CursorAssist.Runtime.Windows;
@@ -129,12 +130,32 @@ public static partial class Program
             .Add(new DirectionalIntentTransform())
             .Add(new TargetMagnetismTransform());
 
+        // ── Begin telemetry session (before engine, so trace writer exists) ──
+        using var telemetry = new TelemetryWriter();
+        var sessionStarted = DateTimeOffset.UtcNow;
+        string sessionId = telemetry.Begin(sessionDir, config);
+
+        // ── Create trace writer + metrics sink (opt-in) ──────────
+        TracingMetricsSink? metricsSink = null;
+        if (traceEnabled)
+        {
+            var header = new TraceHeader
+            {
+                SourceApp = "cursorassist-pilot",
+                SourceVersion = "0.1.0",
+                FixedHz = 60,
+                RunId = sessionId
+            };
+            var traceWriter = telemetry.AttachTraceWriter(header);
+            if (traceWriter is not null)
+                metricsSink = new TracingMetricsSink(traceWriter);
+        }
+
         // ── Create runtime components ─────────────────────────────
-        var engine = new EngineThread(pipeline);
+        var engine = new EngineThread(pipeline, metrics: metricsSink);
         using var capture = new MouseCapture(engine);
         using var injector = new MouseInjector(engine);
         using var killSwitch = new HotkeyKillSwitch();
-        using var telemetry = new TelemetryWriter();
 
         // ── Wire kill switch ──────────────────────────────────────
         killSwitch.Triggered += () =>
@@ -152,23 +173,6 @@ public static partial class Program
             _running = false;
             NativeMethods.PostThreadMessage(_mainThreadId, NativeMethods.WM_QUIT, 0, 0);
         };
-
-        // ── Begin telemetry session ───────────────────────────────
-        var sessionStarted = DateTimeOffset.UtcNow;
-        string sessionId = telemetry.Begin(sessionDir, config);
-
-        TraceWriter? traceWriter = null;
-        if (traceEnabled)
-        {
-            var header = new TraceHeader
-            {
-                SourceApp = "cursorassist-pilot",
-                SourceVersion = "0.1.0",
-                FixedHz = 60,
-                RunId = sessionId
-            };
-            traceWriter = telemetry.AttachTraceWriter(header);
-        }
 
         // ── Get current cursor position ───────────────────────────
         float initX = 960f, initY = 540f;
@@ -242,6 +246,23 @@ public static partial class Program
         float durationS = (float)(sessionEnded - sessionStarted).TotalSeconds;
         string exitReason = _emergencyStopFired ? "kill-switch" : "user";
 
+        // Extract stats from metrics sink (if active)
+        long totalTicks = 0;
+        float meanVelocity = 0f;
+        float peakVelocity = 0f;
+        if (metricsSink is not null)
+        {
+            var stats = metricsSink.ExportStats();
+            totalTicks = stats.TotalTicks;
+            meanVelocity = stats.MeanVelocity;
+            peakVelocity = stats.PeakVelocity;
+        }
+        else
+        {
+            // Estimate tick count from duration when trace is disabled
+            totalTicks = (long)(durationS * 60f);
+        }
+
         var summary = new SessionSummary
         {
             SessionId = sessionId,
@@ -250,8 +271,10 @@ public static partial class Program
             DurationSeconds = durationS,
             ConfigHash = TelemetryWriter.ComputeConfigHash(config),
             FixedHz = 60,
-            TotalTicks = 0, // Placeholder — real tick count from TracingMetricsSink (Commit 3.5)
+            TotalTicks = totalTicks,
             OverrunCount = engine.OverrunCount,
+            MeanVelocity = meanVelocity,
+            PeakVelocity = peakVelocity,
             EmergencyStopFired = _emergencyStopFired,
             ExitReason = exitReason
         };
