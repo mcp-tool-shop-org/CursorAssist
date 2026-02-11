@@ -209,6 +209,11 @@ public static partial class Program
         injector.Start();
         killSwitch.Arm();
 
+        // ── Start live dashboard ──────────────────────────────────
+        using var dashboard = new ConsoleDashboard(
+            engine, config, sessionId, sessionStarted, killSwitch);
+        dashboard.Start();
+
         // ── Start mouse capture + message pump on main thread ─────
         // WH_MOUSE_LL requires a message pump on the calling thread.
         // We install the hook, then pump messages until WM_QUIT.
@@ -222,6 +227,8 @@ public static partial class Program
         }
 
         // ── Shutdown ──────────────────────────────────────────────
+        dashboard.Stop();
+
         Console.WriteLine();
         Console.WriteLine("Stopping...");
 
