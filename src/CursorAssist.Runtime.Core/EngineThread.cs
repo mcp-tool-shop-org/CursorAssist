@@ -165,10 +165,10 @@ public sealed class EngineThread : IDisposable
             curX += evt.Dx;
             curY += evt.Dy;
 
-            // Atomic config swap at frame boundary
+            // Atomic config swap at frame boundary with runtime safety clamp
             if (_pendingConfig is not null)
             {
-                _activeConfig = _pendingConfig;
+                _activeConfig = ClampConfig(_pendingConfig);
                 _pendingConfig = null;
             }
 
@@ -205,10 +205,10 @@ public sealed class EngineThread : IDisposable
             if (deltaS < 0) deltaS = 0;
             accumulator += deltaS;
 
-            // Atomic config swap at frame boundary
+            // Atomic config swap at frame boundary with runtime safety clamp
             if (_pendingConfig is not null)
             {
-                _activeConfig = _pendingConfig;
+                _activeConfig = ClampConfig(_pendingConfig);
                 _pendingConfig = null;
             }
 
@@ -245,9 +245,10 @@ public sealed class EngineThread : IDisposable
 
                 var result = _engine.FixedStep(in input, ctx);
 
-                // Compute assisted delta
+                // Compute assisted delta, clamped to prevent runaway
                 float assistedDx = result.FinalCursor.X - _cursor.X;
                 float assistedDy = result.FinalCursor.Y - _cursor.Y;
+                (assistedDx, assistedDy) = ClampDelta(assistedDx, assistedDy);
 
                 // Update cursor state
                 _cursor.X = result.FinalCursor.X;
@@ -278,6 +279,29 @@ public sealed class EngineThread : IDisposable
             Thread.Sleep(1);
         }
     }
+
+    /// <summary>
+    /// Clamp assisted delta to prevent runaway cursor.
+    /// Last line of defense: caps per-tick injection regardless of transform output.
+    /// </summary>
+    internal static (float dx, float dy) ClampDelta(float dx, float dy)
+    {
+        dx = Math.Clamp(dx, -RuntimeLimits.MaxDeltaPerTick, RuntimeLimits.MaxDeltaPerTick);
+        dy = Math.Clamp(dy, -RuntimeLimits.MaxDeltaPerTick, RuntimeLimits.MaxDeltaPerTick);
+        return (dx, dy);
+    }
+
+    /// <summary>
+    /// Runtime-enforce config parameter bounds. Catches configs that bypass CanonValidator
+    /// (e.g., direct construction, deserialization without validation).
+    /// </summary>
+    internal static AssistiveConfig ClampConfig(AssistiveConfig config) => config with
+    {
+        SmoothingMinAlpha = Math.Clamp(config.SmoothingMinAlpha, RuntimeLimits.MinAlpha, RuntimeLimits.MaxAlpha),
+        SmoothingMaxAlpha = Math.Clamp(config.SmoothingMaxAlpha, RuntimeLimits.MinAlpha, RuntimeLimits.MaxAlpha),
+        DeadzoneRadiusVpx = Math.Clamp(config.DeadzoneRadiusVpx, 0f, RuntimeLimits.MaxDeadzoneRadius),
+        PhaseCompensationGainS = Math.Clamp(config.PhaseCompensationGainS, 0f, RuntimeLimits.MaxPhaseCompGainS)
+    };
 
     public void Dispose()
     {
