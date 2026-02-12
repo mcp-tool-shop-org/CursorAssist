@@ -4,4 +4,29 @@
        Both MouseTrainer and CursorAssist can reference this
        without pulling in each other's types. -->
 
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+
+    <!-- NuGet package metadata -->
+    <PackageId>CursorAssist.Trace</PackageId>
+    <Version>1.0.0</Version>
+    <Description>Zero-dependency JSONL trace format for cursor and pointer input recording and playback. Thread-safe TraceWriter/TraceReader with TraceHeader and TraceSample structures. Platform-agnostic leaf library.</Description>
+    <Authors>mcp-tool-shop</Authors>
+    <Company>MCP Tool Shop</Company>
+    <Copyright>Copyright (c) 2025-2026 MCP Tool Shop</Copyright>
+    <PackageProjectUrl>https://github.com/mcp-tool-shop-org/CursorAssist</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/mcp-tool-shop-org/CursorAssist</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>trace;input-recording;cursor;pointer;jsonl;replay;accessibility</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>
