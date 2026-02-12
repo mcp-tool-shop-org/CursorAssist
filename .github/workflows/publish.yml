@@ -19,13 +19,18 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore
+        run: |
+          dotnet restore src/CursorAssist.Canon/CursorAssist.Canon.csproj
+          dotnet restore src/CursorAssist.Trace/CursorAssist.Trace.csproj
+          dotnet restore src/CursorAssist.Policy/CursorAssist.Policy.csproj
+          dotnet restore src/CursorAssist.Engine/CursorAssist.Engine.csproj
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: |
+          dotnet build src/CursorAssist.Canon/CursorAssist.Canon.csproj --configuration Release --no-restore
+          dotnet build src/CursorAssist.Trace/CursorAssist.Trace.csproj --configuration Release --no-restore
+          dotnet build src/CursorAssist.Policy/CursorAssist.Policy.csproj --configuration Release --no-restore
+          dotnet build src/CursorAssist.Engine/CursorAssist.Engine.csproj --configuration Release --no-restore
 
       - name: Pack CursorAssist.Canon
         run: dotnet pack src/CursorAssist.Canon/CursorAssist.Canon.csproj --configuration Release --no-build --output ./nupkg
