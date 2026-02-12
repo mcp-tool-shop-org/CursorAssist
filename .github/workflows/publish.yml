@@ -1,0 +1,48 @@
+name: Publish to NuGet
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Pack CursorAssist.Canon
+        run: dotnet pack src/CursorAssist.Canon/CursorAssist.Canon.csproj --configuration Release --no-build --output ./nupkg
+
+      - name: Pack CursorAssist.Trace
+        run: dotnet pack src/CursorAssist.Trace/CursorAssist.Trace.csproj --configuration Release --no-build --output ./nupkg
+
+      - name: Pack CursorAssist.Policy
+        run: dotnet pack src/CursorAssist.Policy/CursorAssist.Policy.csproj --configuration Release --no-build --output ./nupkg
+
+      - name: Pack CursorAssist.Engine
+        run: dotnet pack src/CursorAssist.Engine/CursorAssist.Engine.csproj --configuration Release --no-build --output ./nupkg
+
+      - name: Login to NuGet (Trusted Publishing)
+        uses: nuget/login@v1
+        with:
+          nuget-server: https://api.nuget.org
+
+      - name: Push to NuGet
+        run: dotnet nuget push ./nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
