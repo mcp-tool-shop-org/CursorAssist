@@ -1,5 +1,8 @@
 # CursorAssist
 
+> Part of [MCP Tool Shop](https://mcptoolshop.com)
+
+
 A deterministic engine for assistive cursor control, accessibility benchmarking, and adaptive motor-skill training.
 
 CursorAssist helps people with motor impairments (tremor, limited range, fatigue) use a mouse more comfortably. It also provides a training environment for building cursor dexterity through the included MouseTrainer game.
