@@ -15,6 +15,7 @@ x86/
 # NuGet
 packages/
 *.nupkg
+nupkg/
 
 # OS
 Thumbs.db
