@@ -179,7 +179,12 @@ public sealed record AssistiveConfig
     [JsonPropertyName("intentDisengageThreshold")]
     public float IntentDisengageThreshold { get; init; } = 0.65f;
 
-    /// <summary>Prediction horizon in seconds. 0 = no prediction.</summary>
+    /// <summary>
+    /// Prediction horizon in seconds. Reserved for a future speculative-advance
+    /// transform. No engine transform currently reads this field — set it to 0.
+    /// The mapper derives a value for future compatibility, but it has no
+    /// effect on output until a prediction transform is implemented.
+    /// </summary>
     [JsonPropertyName("predictionHorizonS")]
     public float PredictionHorizonS { get; init; }
 

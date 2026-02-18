@@ -3,7 +3,7 @@ using System.Text.Json;
 using CursorAssist.Canon.Schemas;
 using CursorAssist.Engine.Core;
 using CursorAssist.Engine.Layout;
-using CursorAssist.Engine.Mapping;
+using CursorAssist.Policy;
 using CursorAssist.Engine.Metrics;
 using CursorAssist.Engine.Transforms;
 
@@ -195,6 +195,11 @@ public static class Program
                 };
                 var result = engine.FixedStep(in sample, context);
                 sink.RecordTick(tick, in sample, result.FinalCursor, [target]);
+
+                // Feed assisted cursor position back so the next tick simulates
+                // realistic movement from where the engine actually placed the cursor.
+                curX = result.FinalCursor.X;
+                curY = result.FinalCursor.Y;
 
                 if (tick == maxTicks - 1)
                     sink.EndTrial(false, tick);

@@ -59,7 +59,9 @@ public static class ProfileToConfigMapper
         // Lower for higher tremor (more of the velocity range gets filtered)
         float vHigh = MathF.Max(vLow + 1f, 10f - profile.TremorAmplitudeVpx * 0.5f);
 
-        // Prediction: more overshoot -> less prediction (avoid amplifying)
+        // Prediction: more overshoot -> less prediction (avoid amplifying).
+        // Reserved — PredictionHorizonS is written for future compatibility but
+        // no engine transform reads it yet. No behavioral effect currently.
         float prediction = Clamp01(0.05f - profile.OvershootRate * 0.01f);
         if (prediction < 0f) prediction = 0f;
 
