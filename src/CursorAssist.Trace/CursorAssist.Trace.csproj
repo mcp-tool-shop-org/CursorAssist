@@ -13,7 +13,7 @@
 
     <!-- NuGet package metadata -->
     <PackageId>CursorAssist.Trace</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Description>Zero-dependency JSONL trace format for cursor and pointer input recording and playback. Thread-safe TraceWriter/TraceReader with TraceHeader and TraceSample structures. Platform-agnostic leaf library.</Description>
     <Authors>mcp-tool-shop</Authors>
     <Company>MCP Tool Shop</Company>

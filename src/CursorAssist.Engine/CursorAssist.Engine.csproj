@@ -11,7 +11,7 @@
 
     <!-- NuGet package metadata -->
     <PackageId>CursorAssist.Engine</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Description>Deterministic input transform pipeline with 60Hz accumulator loop, composable IInputTransform chain, EMA smoothing, deadzone logic, and metrics collection. Platform-agnostic.</Description>
     <Authors>mcp-tool-shop</Authors>
     <Company>MCP Tool Shop</Company>
