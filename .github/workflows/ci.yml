@@ -6,26 +6,28 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'tools/**'
       - '**/*.csproj'
       - '**/*.sln'
-      - '.github/workflows/ci.yml'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'tools/**'
       - '**/*.csproj'
       - '**/*.sln'
-      - '.github/workflows/ci.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +35,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui
 
       - name: Restore
         run: dotnet restore MouseTrainer.Deterministic.sln
