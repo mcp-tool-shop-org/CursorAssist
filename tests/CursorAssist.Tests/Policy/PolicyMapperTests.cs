@@ -33,7 +33,7 @@ public class PolicyMapperTests
         // Policy mapper must produce identical output to the Engine version
         var profile = MakeProfile();
         var policyConfig = ProfileToConfigMapper.Map(profile);
-        var engineConfig = CursorAssist.Engine.Mapping.ProfileToConfigMapper.Map(profile);
+        var engineConfig = CursorAssist.Policy.ProfileToConfigMapper.Map(profile);
 
         Assert.Equal(policyConfig.SmoothingStrength, engineConfig.SmoothingStrength);
         Assert.Equal(policyConfig.SmoothingMinAlpha, engineConfig.SmoothingMinAlpha);
