@@ -1,0 +1,20 @@
+{
+  "solution": {
+    "path": "MouseTrainer.Deterministic.sln",
+    "projects": [
+      "src\\CursorAssist.Canon\\CursorAssist.Canon.csproj",
+      "src\\CursorAssist.Engine\\CursorAssist.Engine.csproj",
+      "src\\CursorAssist.Policy\\CursorAssist.Policy.csproj",
+      "src\\CursorAssist.Trace\\CursorAssist.Trace.csproj",
+      "src\\CursorAssist.Runtime.Core\\CursorAssist.Runtime.Core.csproj",
+      "src\\MouseTrainer.Domain\\MouseTrainer.Domain.csproj",
+      "src\\MouseTrainer.Simulation\\MouseTrainer.Simulation.csproj",
+      "src\\MouseTrainer.Audio\\MouseTrainer.Audio.csproj",
+      "src\\CursorAssist.Benchmark.Cli\\CursorAssist.Benchmark.Cli.csproj",
+      "src\\CursorAssist.Profile.Cli\\CursorAssist.Profile.Cli.csproj",
+      "tools\\MouseTrainer.AudioGen\\MouseTrainer.AudioGen.csproj",
+      "tests\\CursorAssist.Tests\\CursorAssist.Tests.csproj",
+      "tests\\MouseTrainer.Tests\\MouseTrainer.Tests.csproj"
+    ]
+  }
+}

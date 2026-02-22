@@ -1,5 +1,5 @@
 using CursorAssist.Canon.Schemas;
-using CursorAssist.Engine.Mapping;
+using CursorAssist.Policy;
 using Xunit;
 
 namespace CursorAssist.Tests.Mapping;

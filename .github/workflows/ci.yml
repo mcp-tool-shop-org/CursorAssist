@@ -6,21 +6,25 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'tools/**'
       - '**/*.csproj'
       - '**/*.sln'
-      - '.github/workflows/ci.yml'
+      - '**/*.slnf'
+      - '.github/workflows/**'
   pull_request:
     branches: [main]
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'tools/**'
       - '**/*.csproj'
       - '**/*.sln'
-      - '.github/workflows/ci.yml'
+      - '**/*.slnf'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,10 +39,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore MouseTrainer.Deterministic.sln
+        run: dotnet restore ci.slnf
 
       - name: Build
-        run: dotnet build MouseTrainer.Deterministic.sln --configuration Release --no-restore
+        run: dotnet build ci.slnf --configuration Release --no-restore
 
       - name: Test (CursorAssist)
         run: dotnet test tests/CursorAssist.Tests/CursorAssist.Tests.csproj --configuration Release --no-build --verbosity normal
