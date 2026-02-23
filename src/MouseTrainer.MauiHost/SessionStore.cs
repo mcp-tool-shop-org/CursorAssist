@@ -16,6 +16,7 @@ public sealed class SessionStore
 
     private readonly string _filePath;
     private readonly object _lock = new();
+    private readonly SemaphoreSlim _writeSemaphore = new(1, 1);
     private readonly Action<string>? _log;
     private StatsFile _data = new();
     private bool _loaded;
@@ -91,6 +92,7 @@ public sealed class SessionStore
 
     private async Task WriteToDiskAsync()
     {
+        await _writeSemaphore.WaitAsync();
         try
         {
             string json;
@@ -107,6 +109,10 @@ public sealed class SessionStore
         catch (Exception ex)
         {
             _log?.Invoke($"> [Stats] Write error: {ex.Message}");
+        }
+        finally
+        {
+            _writeSemaphore.Release();
         }
     }
 
