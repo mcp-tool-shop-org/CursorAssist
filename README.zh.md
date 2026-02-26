@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="README.ja.md">日本語</a> | <a href="README.zh.md">中文</a> | <a href="README.es.md">Español</a> | <a href="README.fr.md">Français</a> | <a href="README.hi.md">हिन्दी</a> | <a href="README.it.md">Italiano</a> | <a href="README.pt-BR.md">Português (BR)</a>
+  <a href="README.ja.md">日本語</a> | <a href="README.md">English</a> | <a href="README.es.md">Español</a> | <a href="README.fr.md">Français</a> | <a href="README.hi.md">हिन्दी</a> | <a href="README.it.md">Italiano</a> | <a href="README.pt-BR.md">Português (BR)</a>
 </p>
 
 <p align="center">
@@ -12,57 +12,57 @@
   <a href="https://mcp-tool-shop-org.github.io/CursorAssist/"><img src="https://img.shields.io/badge/Landing_Page-live-blue" alt="Landing Page" /></a>
 </p>
 
-**A deterministic engine for assistive cursor control, UI accessibility benchmarking, and adaptive motor-skill training.**
+**一个用于辅助光标控制、UI 可访问性基准测试和自适应运动技能训练的确定性引擎。**
 
 ---
 
-## Why CursorAssist?
+## 为什么选择 CursorAssist？
 
-- **Tremor compensation that actually works.** DSP-grounded EMA smoothing with velocity-adaptive alpha, frequency-aware cutoff, optional dual-pole (-40 dB/decade), and phase compensation -- not a toy low-pass filter.
-- **Deterministic by design.** Same input always produces the same output. No `DateTime.Now`, no `Random`, no platform-dependent floats. Every frame is reproducible and verifiable via FNV-1a hash chains.
-- **Modular NuGet packages.** Use just the schemas (Canon), just the trace format (Trace), just the policy mapper (Policy), or the full transform pipeline (Engine). No forced coupling.
-- **Motor profiling with real DSP math.** Power-law frequency-weighted deadzones, closed-form EMA cutoff from tremor frequency, directional intent detection via cosine coherence, and hysteresis on every engagement boundary.
-- **214+ tests.** Every transform, every policy rule, every edge case.
-
----
-
-## Two Product Surfaces, One Engine
-
-This workspace contains two products that share a common deterministic core:
-
-### CursorAssist -- Real-Time Cursor Assistance
-
-For people with motor impairments (tremor, limited range, fatigue). Runs as a system tray application that intercepts and transforms raw pointer input in real time.
-
-- Tremor compensation via velocity-adaptive EMA smoothing and phase correction
-- Adaptive soft deadzones with quadratic compression (no hard edges)
-- Edge resistance and target magnetism with hysteresis
-- Motor profiling with versioned schemas
-- Deterministic policy mapping: same profile always produces the same config
-
-### MouseTrainer -- Deterministic Cursor Dexterity Game
-
-For building the dexterity to need less assistance over time. A .NET MAUI desktop game with fixed-timestep simulation.
-
-- Fixed 60 Hz simulation with composable blueprint mutators
-- Platform-stable run identity via xorshift32 RNG and FNV-1a hashing
-- Drag-and-Drop Gauntlet mode for real-world cursor task training
-- Event-driven audio cue system with deterministic volume/pitch jitter
+- **真正有效的颤抖补偿。** 基于数字信号处理 (DSP) 的 EMA 平滑算法，采用自适应速度系数、频率感知截止频率、可选的双极滤波器（-40 dB/decade）和相位补偿——而不是一个简单的低通滤波器。
+- **设计上的确定性。** 相同的输入始终产生相同的输出。 没有 `DateTime.Now`，没有 `Random`，没有平台相关的浮点数。 每一帧都可以通过 FNV-1a 哈希链进行重现和验证。
+- **模块化的 NuGet 包。** 您可以选择仅使用模式（Canon）、仅使用跟踪格式（Trace）、仅使用策略映射器（Policy），或者使用完整的转换流水线（Engine）。 没有强制的依赖关系。
+- **基于真实 DSP 算法的运动分析。** 采用幂律频率加权死区、基于颤抖频率的闭式 EMA 截止频率计算、通过余弦相干性检测方向意图，以及在每个激活边界上的迟滞现象。
+- **214 多个测试用例。** 涵盖每个转换、每个策略规则和每个边界情况。
 
 ---
 
-## NuGet Packages
+## 两个产品界面，一个核心引擎
 
-The four CursorAssist libraries are published to NuGet as independent packages:
+这个工作空间包含两个产品，它们共享一个通用的确定性核心：
 
-| Package | NuGet | Description |
-|---------|-------|-------------|
-| **CursorAssist.Canon** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Canon)](https://www.nuget.org/packages/CursorAssist.Canon) | Versioned immutable schemas and DTOs for motor profiles, assistive configs, difficulty plans, and accessibility reports. Zero dependencies. |
-| **CursorAssist.Trace** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Trace)](https://www.nuget.org/packages/CursorAssist.Trace) | JSONL trace format (`.castrace.jsonl`) for cursor input recording and playback. Thread-safe writer/reader. Zero dependencies. |
-| **CursorAssist.Policy** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Policy)](https://www.nuget.org/packages/CursorAssist.Policy) | Deterministic mapper from motor profiles to assistive configs. DSP-grounded tremor compensation with EMA cutoff formulas, power-law deadzones, and phase compensation. Depends on Canon. |
-| **CursorAssist.Engine** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Engine)](https://www.nuget.org/packages/CursorAssist.Engine) | Input transform pipeline with 60 Hz accumulator, composable `IInputTransform` chain, and metrics collection. Depends on Canon and Trace. |
+### CursorAssist -- 实时光标辅助
 
-### Install
+适用于患有运动障碍（颤抖、活动范围受限、疲劳）的人群。 作为一个系统托盘应用程序运行，实时拦截并转换原始指针输入。
+
+- 通过自适应速度 EMA 平滑算法和相位校正进行颤抖补偿
+- 自适应的软死区，采用二次压缩（没有硬边界）
+- 具有迟滞特性的边缘阻力和目标磁性
+- 带有版本信息的运动分析
+- 确定性的策略映射：相同的运动分析始终产生相同的配置
+
+### MouseTrainer -- 确定性的光标灵活性游戏
+
+用于培养随着时间的推移减少辅助的需求。 这是一个使用 .NET MAUI 技术的桌面游戏，具有固定时间步长的模拟。
+
+- 固定 60 Hz 模拟，具有可组合的蓝图修改器
+- 通过 xorshift32 随机数生成器和 FNV-1a 哈希实现平台稳定的运行身份
+- 拖放模式，用于真实世界的光标任务训练
+- 基于事件驱动的音频提示系统，具有确定性的音量/音调抖动
+
+---
+
+## NuGet 包
+
+CursorAssist 的四个库已发布到 NuGet，作为独立的包：
+
+| 包 | NuGet | 描述 |
+| --------- | ------- | ------------- |
+| **CursorAssist.Canon** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Canon)](https://www.nuget.org/packages/CursorAssist.Canon) | 用于运动分析、辅助配置、难度计划和可访问性报告的、版本化的不可变模式和数据传输对象 (DTO)。 没有依赖项。 |
+| **CursorAssist.Trace** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Trace)](https://www.nuget.org/packages/CursorAssist.Trace) | 用于光标输入记录和回放的 JSONL 跟踪格式 (`.castrace.jsonl`)。 线程安全的文件读写器。 没有依赖项。 |
+| **CursorAssist.Policy** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Policy)](https://www.nuget.org/packages/CursorAssist.Policy) | 从运动分析到辅助配置的确定性映射器。 基于数字信号处理 (DSP) 的颤抖补偿，具有 EMA 截止频率公式、幂律死区和相位补偿。 依赖于 Canon。 |
+| **CursorAssist.Engine** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Engine)](https://www.nuget.org/packages/CursorAssist.Engine) | 具有 60 Hz 累加器、可组合的 `IInputTransform` 链和指标收集的输入转换流水线。 依赖于 Canon 和 Trace。 |
+
+### 安装
 
 ```bash
 # Install individual packages
@@ -72,7 +72,7 @@ dotnet add package CursorAssist.Policy
 dotnet add package CursorAssist.Engine
 ```
 
-Or add to your `.csproj`:
+或者添加到您的 `.csproj` 文件中：
 
 ```xml
 <PackageReference Include="CursorAssist.Canon" Version="1.0.0" />
@@ -81,13 +81,13 @@ Or add to your `.csproj`:
 <PackageReference Include="CursorAssist.Engine" Version="1.0.0" />
 ```
 
-> You only need the packages you use. Canon and Trace are zero-dependency leaves. Policy depends on Canon. Engine depends on Canon and Trace.
+> 您只需要使用的包。 Canon 和 Trace 没有依赖项。 Policy 依赖于 Canon。 Engine 依赖于 Canon 和 Trace。
 
 ---
 
-## Quick Start
+## 快速开始
 
-### Map a motor profile to an assistive config (Policy)
+### 将运动分析映射到辅助配置（Policy）
 
 ```csharp
 using CursorAssist.Canon.Schemas;
@@ -111,7 +111,7 @@ AssistiveConfig config = ProfileToConfigMapper.Map(profile);
 // config.PhaseCompensationGainS --> ~0.005 (conservative lag offset)
 ```
 
-### Build and run the transform pipeline (Engine)
+### 构建并运行转换流水线（Engine）
 
 ```csharp
 using CursorAssist.Engine.Core;
@@ -142,7 +142,7 @@ EngineFrameResult result = engine.FixedStep(in raw, context);
 // result.DeterminismHash --> FNV-1a hash for replay verification
 ```
 
-### Record a trace (Trace)
+### 记录跟踪信息（Trace）
 
 ```csharp
 using CursorAssist.Trace;
@@ -161,7 +161,7 @@ writer.WriteSample(new TraceSample { Tick = 1, X = 502.1f, Y = 299.2f });
 
 ---
 
-## Architecture
+## 架构
 
 ```
 CursorAssist libraries:
@@ -187,35 +187,35 @@ CLI tools:
   CursorAssist.Profile.Cli     --> Engine, Canon         Motor profiling
 ```
 
-### Transform Pipeline Order
+### 转换流水线顺序
 
 ```
 Raw Input --> SoftDeadzone --> Smoothing --> PhaseCompensation --> DirectionalIntent --> TargetMagnetism --> Output
 ```
 
-Each transform implements `IInputTransform` and is composed via `TransformPipeline`. The `DeterministicPipeline` wraps the chain in a fixed-timestep accumulator loop with FNV-1a hash verification on every tick.
+每个转换模块都实现了 `IInputTransform` 接口，并通过 `TransformPipeline` 进行组合。`DeterministicPipeline` 将转换链封装在一个固定时间步长的累加循环中，并在每个时间步进行 FNV-1a 哈希验证。
 
 ---
 
-## Design Principles
+## 设计原则
 
-- **Determinism is constitutional.** Same input produces the same output, always. No `DateTime.Now`, no `Random`, no platform-dependent floats in the hot path. Every frame is hash-verified.
-- **DSP-grounded, not ad hoc.** EMA cutoff frequencies are derived from closed-form formulas (`fc = alpha * Fs / 2pi`). Deadzone radii use power-law frequency weighting. Phase compensation is velocity-attenuated to prevent overshoot.
-- **Modular with enforced boundaries.** One-way dependencies, no cycles. Canon and Trace are leaves. Apps are composition roots.
-- **Protocol-grade identity.** IDs are permanent and frozen. FNV-1a hashing with canonical parameter serialization. xorshift32 RNG for reproducible game sessions.
-- **Accessibility is the product.** CursorAssist exists to make computers usable for people with motor impairments. MouseTrainer exists to help people build the dexterity to need less assistance over time.
+- **确定性是核心。** 相同的输入始终产生相同的输出。 不使用 `DateTime.Now`、`Random` 或平台相关的浮点数。 每一帧都经过哈希验证。
+- **基于 DSP 理论，而非临时方案。** EMA（指数移动平均）的截止频率由封闭形式的公式推导得出（`fc = alpha * Fs / 2pi`）。 零区半径使用幂律频率加权。 相位补偿通过速度衰减来防止超调。
+- **模块化，并强制执行边界。** 依赖关系是单向的，没有循环。 Canon 和 Trace 是叶节点。 应用程序是组合的根节点。
+- **协议级别的身份验证。** ID 是永久且固定的。 使用 FNV-1a 哈希算法，并对参数进行规范化序列化。 使用 xorshift32 随机数生成器，以实现可重复的游戏会话。
+- **可访问性是产品。** CursorAssist 的存在是为了让计算机能够被有运动障碍的人使用。 MouseTrainer 的存在是为了帮助人们提高操作技巧，从而减少对辅助的依赖。
 
 ---
 
-## Building from Source
+## 从源代码构建
 
-### Prerequisites
+### 先决条件
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
-- Windows 10/11 (for Runtime.Windows and MouseTrainer.MauiHost)
-- Any OS for the core libraries (Canon, Trace, Policy, Engine are platform-agnostic)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) 或更高版本
+- Windows 10/11（用于 Runtime.Windows 和 MouseTrainer.MauiHost）
+- 任何操作系统（核心库，如 Canon、Trace、Policy 和 Engine，都是平台无关的）
 
-### Build
+### 构建
 
 ```bash
 # Clone
@@ -235,7 +235,7 @@ dotnet test tests/CursorAssist.Tests/
 dotnet test tests/MouseTrainer.Tests/
 ```
 
-### Pack NuGet packages locally
+### 本地打包 NuGet 包
 
 ```bash
 dotnet pack src/CursorAssist.Canon/CursorAssist.Canon.csproj -c Release -o ./nupkg
@@ -246,7 +246,7 @@ dotnet pack src/CursorAssist.Engine/CursorAssist.Engine.csproj -c Release -o ./n
 
 ---
 
-## Project Structure
+## 项目结构
 
 ```
 CursorAssist/
@@ -283,7 +283,7 @@ CursorAssist/
 
 ---
 
-## License
+## 许可证
 
 [MIT](LICENSE)
 

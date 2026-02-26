@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="README.ja.md">日本語</a> | <a href="README.zh.md">中文</a> | <a href="README.es.md">Español</a> | <a href="README.fr.md">Français</a> | <a href="README.hi.md">हिन्दी</a> | <a href="README.it.md">Italiano</a> | <a href="README.pt-BR.md">Português (BR)</a>
+  <a href="README.ja.md">日本語</a> | <a href="README.zh.md">中文</a> | <a href="README.md">English</a> | <a href="README.fr.md">Français</a> | <a href="README.hi.md">हिन्दी</a> | <a href="README.it.md">Italiano</a> | <a href="README.pt-BR.md">Português (BR)</a>
 </p>
 
 <p align="center">
@@ -12,57 +12,57 @@
   <a href="https://mcp-tool-shop-org.github.io/CursorAssist/"><img src="https://img.shields.io/badge/Landing_Page-live-blue" alt="Landing Page" /></a>
 </p>
 
-**A deterministic engine for assistive cursor control, UI accessibility benchmarking, and adaptive motor-skill training.**
+**Un motor determinista para el control asistido del cursor, la evaluación de la accesibilidad de la interfaz de usuario y el entrenamiento adaptativo de habilidades motoras.**
 
 ---
 
-## Why CursorAssist?
+## ¿Por qué CursorAssist?
 
-- **Tremor compensation that actually works.** DSP-grounded EMA smoothing with velocity-adaptive alpha, frequency-aware cutoff, optional dual-pole (-40 dB/decade), and phase compensation -- not a toy low-pass filter.
-- **Deterministic by design.** Same input always produces the same output. No `DateTime.Now`, no `Random`, no platform-dependent floats. Every frame is reproducible and verifiable via FNV-1a hash chains.
-- **Modular NuGet packages.** Use just the schemas (Canon), just the trace format (Trace), just the policy mapper (Policy), or the full transform pipeline (Engine). No forced coupling.
-- **Motor profiling with real DSP math.** Power-law frequency-weighted deadzones, closed-form EMA cutoff from tremor frequency, directional intent detection via cosine coherence, and hysteresis on every engagement boundary.
-- **214+ tests.** Every transform, every policy rule, every edge case.
-
----
-
-## Two Product Surfaces, One Engine
-
-This workspace contains two products that share a common deterministic core:
-
-### CursorAssist -- Real-Time Cursor Assistance
-
-For people with motor impairments (tremor, limited range, fatigue). Runs as a system tray application that intercepts and transforms raw pointer input in real time.
-
-- Tremor compensation via velocity-adaptive EMA smoothing and phase correction
-- Adaptive soft deadzones with quadratic compression (no hard edges)
-- Edge resistance and target magnetism with hysteresis
-- Motor profiling with versioned schemas
-- Deterministic policy mapping: same profile always produces the same config
-
-### MouseTrainer -- Deterministic Cursor Dexterity Game
-
-For building the dexterity to need less assistance over time. A .NET MAUI desktop game with fixed-timestep simulation.
-
-- Fixed 60 Hz simulation with composable blueprint mutators
-- Platform-stable run identity via xorshift32 RNG and FNV-1a hashing
-- Drag-and-Drop Gauntlet mode for real-world cursor task training
-- Event-driven audio cue system with deterministic volume/pitch jitter
+- **Compensación de temblores que realmente funciona.** Suavizado EMA basado en procesamiento digital de señales (DSP) con un factor alfa adaptable a la velocidad, un filtro de corte con conocimiento de la frecuencia, compensación de fase opcional (dual-pole, -40 dB/década) y compensación de fase; no es un simple filtro de paso bajo.
+- **Determinista por diseño.** La misma entrada siempre produce la misma salida. No utiliza `DateTime.Now`, ni `Random`, ni números de punto flotante dependientes de la plataforma. Cada fotograma es reproducible y verificable mediante cadenas de hash FNV-1a.
+- **Paquetes NuGet modulares.** Puede usar solo los esquemas (Canon), solo el formato de seguimiento (Trace), solo el mapeador de políticas (Policy) o la canalización de transformación completa (Engine). No hay acoplamiento forzado.
+- **Perfilado del motor con matemáticas de DSP reales.** Zonas muertas ponderadas por frecuencia con ley de potencia, cálculo directo del filtro de corte EMA a partir de la frecuencia del temblor, detección de la intención direccional mediante coherencia coseno e histéresis en cada límite de activación.
+- **Más de 214 pruebas.** Cada transformación, cada regla de política, cada caso límite.
 
 ---
 
-## NuGet Packages
+## Dos interfaces de producto, un motor
 
-The four CursorAssist libraries are published to NuGet as independent packages:
+Este espacio de trabajo contiene dos productos que comparten un núcleo determinista común:
 
-| Package | NuGet | Description |
-|---------|-------|-------------|
-| **CursorAssist.Canon** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Canon)](https://www.nuget.org/packages/CursorAssist.Canon) | Versioned immutable schemas and DTOs for motor profiles, assistive configs, difficulty plans, and accessibility reports. Zero dependencies. |
-| **CursorAssist.Trace** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Trace)](https://www.nuget.org/packages/CursorAssist.Trace) | JSONL trace format (`.castrace.jsonl`) for cursor input recording and playback. Thread-safe writer/reader. Zero dependencies. |
-| **CursorAssist.Policy** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Policy)](https://www.nuget.org/packages/CursorAssist.Policy) | Deterministic mapper from motor profiles to assistive configs. DSP-grounded tremor compensation with EMA cutoff formulas, power-law deadzones, and phase compensation. Depends on Canon. |
-| **CursorAssist.Engine** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Engine)](https://www.nuget.org/packages/CursorAssist.Engine) | Input transform pipeline with 60 Hz accumulator, composable `IInputTransform` chain, and metrics collection. Depends on Canon and Trace. |
+### CursorAssist: Asistencia del cursor en tiempo real
 
-### Install
+Para personas con discapacidades motoras (temblores, rango limitado, fatiga). Se ejecuta como una aplicación en la bandeja del sistema que intercepta y transforma la entrada bruta del puntero en tiempo real.
+
+- Compensación de temblores mediante suavizado EMA adaptable a la velocidad y corrección de fase.
+- Zonas muertas adaptables con compresión cuadrática (sin bordes duros).
+- Resistencia a los bordes y magnetismo del objetivo con histéresis.
+- Perfilado del motor con esquemas versionados.
+- Mapeo de políticas determinista: el mismo perfil siempre produce la misma configuración.
+
+### MouseTrainer: Juego determinista para mejorar la destreza del cursor
+
+Para desarrollar la destreza necesaria para requerir menos asistencia con el tiempo. Un juego de escritorio .NET MAUI con simulación de paso fijo.
+
+- Simulación de 60 Hz con mutadores de esquema composables.
+- Identidad de ejecución estable en la plataforma mediante el generador de números aleatorios xorshift32 y el hash FNV-1a.
+- Modo "Gauntlet" de arrastrar y soltar para el entrenamiento de tareas del cursor en el mundo real.
+- Sistema de señales de audio basado en eventos con jitter determinista de volumen/tono.
+
+---
+
+## Paquetes NuGet
+
+Las cuatro bibliotecas de CursorAssist se publican en NuGet como paquetes independientes:
+
+| Paquete | NuGet | Descripción |
+| --------- | ------- | ------------- |
+| **CursorAssist.Canon** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Canon)](https://www.nuget.org/packages/CursorAssist.Canon) | Esquemas y DTOs inmutables y versionados para perfiles de motor, configuraciones de asistencia, planes de dificultad e informes de accesibilidad. Sin dependencias. |
+| **CursorAssist.Trace** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Trace)](https://www.nuget.org/packages/CursorAssist.Trace) | Formato de seguimiento JSONL (`.castrace.jsonl`) para la grabación y reproducción de la entrada del cursor. Escritor/lector compatible con múltiples hilos. Sin dependencias. |
+| **CursorAssist.Policy** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Policy)](https://www.nuget.org/packages/CursorAssist.Policy) | Mapeador determinista de perfiles de motor a configuraciones de asistencia. Compensación de temblores basada en DSP con fórmulas de corte EMA, zonas muertas con ley de potencia y compensación de fase. Depende de Canon. |
+| **CursorAssist.Engine** | [![NuGet](https://img.shields.io/nuget/v/CursorAssist.Engine)](https://www.nuget.org/packages/CursorAssist.Engine) | Canalización de transformación de entrada con acumulador de 60 Hz, cadena composable de `IInputTransform` y recopilación de métricas. Depende de Canon y Trace. |
+
+### Instalar
 
 ```bash
 # Install individual packages
@@ -72,7 +72,7 @@ dotnet add package CursorAssist.Policy
 dotnet add package CursorAssist.Engine
 ```
 
-Or add to your `.csproj`:
+O agregar a su `.csproj`:
 
 ```xml
 <PackageReference Include="CursorAssist.Canon" Version="1.0.0" />
@@ -81,13 +81,13 @@ Or add to your `.csproj`:
 <PackageReference Include="CursorAssist.Engine" Version="1.0.0" />
 ```
 
-> You only need the packages you use. Canon and Trace are zero-dependency leaves. Policy depends on Canon. Engine depends on Canon and Trace.
+> Solo necesita los paquetes que utiliza. Canon y Trace no tienen dependencias. Policy depende de Canon. Engine depende de Canon y Trace.
 
 ---
 
-## Quick Start
+## Comienzo rápido
 
-### Map a motor profile to an assistive config (Policy)
+### Mapear un perfil de motor a una configuración de asistencia (Policy)
 
 ```csharp
 using CursorAssist.Canon.Schemas;
@@ -111,7 +111,7 @@ AssistiveConfig config = ProfileToConfigMapper.Map(profile);
 // config.PhaseCompensationGainS --> ~0.005 (conservative lag offset)
 ```
 
-### Build and run the transform pipeline (Engine)
+### Construir y ejecutar la canalización de transformación (Engine)
 
 ```csharp
 using CursorAssist.Engine.Core;
@@ -142,7 +142,7 @@ EngineFrameResult result = engine.FixedStep(in raw, context);
 // result.DeterminismHash --> FNV-1a hash for replay verification
 ```
 
-### Record a trace (Trace)
+### Grabar un seguimiento (Trace)
 
 ```csharp
 using CursorAssist.Trace;
@@ -161,7 +161,7 @@ writer.WriteSample(new TraceSample { Tick = 1, X = 502.1f, Y = 299.2f });
 
 ---
 
-## Architecture
+## Arquitectura
 
 ```
 CursorAssist libraries:
@@ -187,35 +187,35 @@ CLI tools:
   CursorAssist.Profile.Cli     --> Engine, Canon         Motor profiling
 ```
 
-### Transform Pipeline Order
+### Orden de la canalización de transformación
 
 ```
 Raw Input --> SoftDeadzone --> Smoothing --> PhaseCompensation --> DirectionalIntent --> TargetMagnetism --> Output
 ```
 
-Each transform implements `IInputTransform` and is composed via `TransformPipeline`. The `DeterministicPipeline` wraps the chain in a fixed-timestep accumulator loop with FNV-1a hash verification on every tick.
+Cada transformación implementa la interfaz `IInputTransform` y se compone a través de `TransformPipeline`. `DeterministicPipeline` encapsula la cadena en un bucle acumulador de pasos fijos, con verificación de hash FNV-1a en cada iteración.
 
 ---
 
-## Design Principles
+## Principios de Diseño
 
-- **Determinism is constitutional.** Same input produces the same output, always. No `DateTime.Now`, no `Random`, no platform-dependent floats in the hot path. Every frame is hash-verified.
-- **DSP-grounded, not ad hoc.** EMA cutoff frequencies are derived from closed-form formulas (`fc = alpha * Fs / 2pi`). Deadzone radii use power-law frequency weighting. Phase compensation is velocity-attenuated to prevent overshoot.
-- **Modular with enforced boundaries.** One-way dependencies, no cycles. Canon and Trace are leaves. Apps are composition roots.
-- **Protocol-grade identity.** IDs are permanent and frozen. FNV-1a hashing with canonical parameter serialization. xorshift32 RNG for reproducible game sessions.
-- **Accessibility is the product.** CursorAssist exists to make computers usable for people with motor impairments. MouseTrainer exists to help people build the dexterity to need less assistance over time.
+- **El determinismo es fundamental.** La misma entrada siempre produce la misma salida. No se utilizan `DateTime.Now`, ni `Random`, ni números de punto flotante dependientes de la plataforma en las partes críticas del código. Cada fotograma se verifica mediante un hash.
+- **Basado en principios de procesamiento de señales (DSP), no en soluciones ad hoc.** Las frecuencias de corte de la media móvil exponencial (EMA) se derivan de fórmulas cerradas (`fc = alpha * Fs / 2pi`). Los radios de la zona muerta utilizan ponderación de frecuencia por ley de potencia. La compensación de fase se atenúa según la velocidad para evitar el sobreimpulso.
+- **Modular con límites definidos.** Dependencias unidireccionales, sin ciclos. Canon y Trace son elementos finales. Las aplicaciones son los puntos de composición.
+- **Identidad de grado de protocolo.** Los identificadores son permanentes e inmutables. Se utiliza el hashing FNV-1a con serialización de parámetros canónicos. Se utiliza el generador de números aleatorios xorshift32 para sesiones de juego reproducibles.
+- **La accesibilidad es el objetivo.** CursorAssist existe para hacer que las computadoras sean utilizables para personas con discapacidades motoras. MouseTrainer existe para ayudar a las personas a desarrollar la destreza necesaria para requerir menos asistencia con el tiempo.
 
 ---
 
-## Building from Source
+## Compilación desde el código fuente
 
-### Prerequisites
+### Requisitos previos
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) or later
-- Windows 10/11 (for Runtime.Windows and MouseTrainer.MauiHost)
-- Any OS for the core libraries (Canon, Trace, Policy, Engine are platform-agnostic)
+- [SDK de .NET 8](https://dotnet.microsoft.com/download/dotnet/8.0) o posterior
+- Windows 10/11 (para Runtime.Windows y MouseTrainer.MauiHost)
+- Cualquier sistema operativo para las bibliotecas principales (Canon, Trace, Policy, Engine son independientes de la plataforma)
 
-### Build
+### Compilación
 
 ```bash
 # Clone
@@ -235,7 +235,7 @@ dotnet test tests/CursorAssist.Tests/
 dotnet test tests/MouseTrainer.Tests/
 ```
 
-### Pack NuGet packages locally
+### Empaquetar paquetes NuGet localmente
 
 ```bash
 dotnet pack src/CursorAssist.Canon/CursorAssist.Canon.csproj -c Release -o ./nupkg
@@ -246,7 +246,7 @@ dotnet pack src/CursorAssist.Engine/CursorAssist.Engine.csproj -c Release -o ./n
 
 ---
 
-## Project Structure
+## Estructura del proyecto
 
 ```
 CursorAssist/
@@ -283,7 +283,7 @@ CursorAssist/
 
 ---
 
-## License
+## Licencia
 
 [MIT](LICENSE)
 

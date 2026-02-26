@@ -28,3 +28,6 @@ temp-inspect2/
 
 # Zip archives
 *.zip
+site/.astro/
+site/node_modules/
+.polyglot-cache.json
