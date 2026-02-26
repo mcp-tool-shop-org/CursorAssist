@@ -1,1 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Canon is a leaf: versioned schemas + DTOs, no behavior, no dependencies. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+
+    <!-- NuGet package metadata -->
+    <PackageId>CursorAssist.Canon</PackageId>
+    <Version>1.0.2</Version>
+    <Description>Versioned immutable JSON schemas and DTOs for motor profiles, assistive cursor configs, adaptive difficulty plans, and UI accessibility reports. Zero dependencies leaf library.</Description>
+    <Authors>mcp-tool-shop</Authors>
+    <Company>MCP Tool Shop</Company>
+    <Copyright>Copyright (c) 2025-2026 MCP Tool Shop</Copyright>
+    <PackageProjectUrl>https://github.com/mcp-tool-shop-org/CursorAssist</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/mcp-tool-shop-org/CursorAssist</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>accessibility;schemas;dto;motor-profile;assistive;cursor</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>
