@@ -23,10 +23,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore
-        run: dotnet restore MouseTrainer.Deterministic.sln
+        run: dotnet restore ci.slnf
 
       - name: Build
-        run: dotnet build MouseTrainer.Deterministic.sln --configuration Release --no-restore
+        run: dotnet build ci.slnf --configuration Release --no-restore
 
       - name: Test (gate before publish)
         run: |
