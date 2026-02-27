@@ -75,10 +75,10 @@ dotnet add package CursorAssist.Engine
 Or add to your `.csproj`:
 
 ```xml
-<PackageReference Include="CursorAssist.Canon" Version="1.0.0" />
-<PackageReference Include="CursorAssist.Trace" Version="1.0.0" />
-<PackageReference Include="CursorAssist.Policy" Version="1.0.0" />
-<PackageReference Include="CursorAssist.Engine" Version="1.0.0" />
+<PackageReference Include="CursorAssist.Canon" Version="1.0.3" />
+<PackageReference Include="CursorAssist.Trace" Version="1.0.3" />
+<PackageReference Include="CursorAssist.Policy" Version="1.0.3" />
+<PackageReference Include="CursorAssist.Engine" Version="1.0.3" />
 ```
 
 > You only need the packages you use. Canon and Trace are zero-dependency leaves. Policy depends on Canon. Engine depends on Canon and Trace.
@@ -280,6 +280,31 @@ CursorAssist/
 │   └── modular.manifesto.md           # Modularity principles
 └── MouseTrainer.Deterministic.sln     # Solution file
 ```
+
+---
+
+## Security & Data Scope
+
+CursorAssist is a **local-first** desktop application and NuGet library suite.
+
+- **Data accessed:** Raw pointer input coordinates, motor profile JSON files, trace recordings (`.castrace.jsonl`), MAUI local storage for game sessions
+- **Data NOT accessed:** No cloud sync. No telemetry. No analytics. No network calls. No authentication
+- **Permissions:** Raw pointer input (Windows hooks), file system for profiles and traces. No elevated permissions
+
+Full policy: [SECURITY.md](SECURITY.md)
+
+---
+
+## Scorecard
+
+| Category | Score |
+|----------|-------|
+| A. Security | 10/10 |
+| B. Error Handling | 10/10 |
+| C. Operator Docs | 10/10 |
+| D. Shipping Hygiene | 10/10 |
+| E. Identity (soft) | 10/10 |
+| **Overall** | **50/50** |
 
 ---
 

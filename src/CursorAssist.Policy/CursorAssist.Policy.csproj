@@ -11,7 +11,7 @@
 
     <!-- NuGet package metadata -->
     <PackageId>CursorAssist.Policy</PackageId>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Description>Versioned deterministic mapper from motor profiles to assistive cursor configs. DSP-grounded tremor compensation with EMA cutoff formulas, power-law deadzones, and phase compensation.</Description>
     <Authors>mcp-tool-shop</Authors>
     <Company>MCP Tool Shop</Company>
