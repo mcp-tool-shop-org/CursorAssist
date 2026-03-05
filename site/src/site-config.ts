@@ -14,7 +14,7 @@ export const config: SiteConfig = {
     headlineAccent: 'deterministic by design.',
     description: 'DSP-grounded tremor compensation, adaptive deadzones, and target magnetism — every frame is hash-verified and reproducible. Plus MouseTrainer for building dexterity over time.',
     primaryCta: { href: '#usage', label: 'Get started' },
-    secondaryCta: { href: '#packages', label: 'See packages' },
+    secondaryCta: { href: 'handbook/', label: 'Read the Handbook' },
     previews: [
       { label: 'Install', code: 'dotnet add package CursorAssist.Engine' },
       { label: 'Pipeline', code: 'var pipeline = new TransformPipeline()\n  .Add(new SoftDeadzoneTransform())\n  .Add(new SmoothingTransform())\n  .Add(new PhaseCompensationTransform());' },
